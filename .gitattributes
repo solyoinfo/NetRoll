@@ -1,0 +1,25 @@
+# Normalize text files
+* text=auto
+
+# C# diff
+*.cs diff=csharp
+*.razor text
+*.cshtml text
+
+# JSON / config
+*.json text
+
+# Resx treat as text
+*.resx text
+
+# Scripts
+*.sh text eol=lf
+*.ps1 text eol=crlf
+
+# Images binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+
