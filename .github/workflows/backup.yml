@@ -1,0 +1,41 @@
+name: repo-backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *' # 02:00 UTC daily
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  pack-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prune large/transient folders
+        run: |
+          rm -rf .git
+          rm -rf bin obj **/bin **/obj || true
+          tar --version
+
+      - name: Create tarball
+        run: |
+          BACKUP_NAME=netroll-backup-$(date +%Y%m%d-%H%M%S).tar.gz
+          tar -czf $BACKUP_NAME .
+          echo "BACKUP_NAME=$BACKUP_NAME" >> $GITHUB_ENV
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_NAME }}
+          path: ${{ env.BACKUP_NAME }}
+          retention-days: 30
+
+      - name: (Optional) Size info
+        run: ls -lh $BACKUP_NAME
