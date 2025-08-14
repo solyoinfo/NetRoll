@@ -51,9 +51,9 @@ Adj hozzá egy LICENSE fájlt (pl. MIT), ha nyílttá teszed.
 ## Következő lépések
 - Alap unit tesztek hozzáadása (pl. DisplayOrder rendezés logika)
 - CI workflow (GitHub Actions) lint + build + EF migráció teszt
- - Napi automatikus backup workflow (repo tartalmának artefaktba csomagolása)
+ - (Opcionális) manuális backup workflow (repo tartalmának artefaktba csomagolása)
 
 ## Backup workflow
-A `.github/workflows/backup.yml` napi 02:00 UTC-kor (és manuálisan) lefut, kitakarítja a fordítási mappákat és feltölti a teljes forráskódot tömörített artefaktként 30 nap megőrzéssel.
-Manuális indítás: GitHub → Actions → repo-backup → Run workflow.
+A `.github/workflows/backup.yml` csak manuálisan futtatható (nincs ütemezett cron). Feladata: kitakarítja a fordítási mappákat és feltölti a teljes forráskódot tömörített artefaktként 30 nap megőrzéssel.
+Indítás: GitHub → Actions → repo-backup → Run workflow → Run.
 
