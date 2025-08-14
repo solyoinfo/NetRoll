@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Manage your external logins</value></data>
+  <data name="RegisteredLogins" xml:space="preserve"><value>Registered Logins</value></data>
+  <data name="RemoveTitle" xml:space="preserve"><value>Remove this {0} login from your account</value></data>
+  <data name="Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="AddAnotherService" xml:space="preserve"><value>Add another service to log in</value></data>
+  <data name="LoginUsingTitle" xml:space="preserve"><value>Log in using your {0} account</value></data>
+  <data name="RemoveError" xml:space="preserve"><value>Error: The external login was not removed.</value></data>
+  <data name="Removed" xml:space="preserve"><value>The external login was removed.</value></data>
+  <data name="LoadInfoError" xml:space="preserve"><value>Error: Could not load external login info.</value></data>
+  <data name="AddError" xml:space="preserve"><value>Error: The external login was not added. External logins can only be associated with one account.</value></data>
+  <data name="Added" xml:space="preserve"><value>The external login was added.</value></data>
+</root>

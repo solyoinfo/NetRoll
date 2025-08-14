@@ -1,0 +1,29 @@
+@page "/profile"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using NetRoll.Components
+@attribute [Authorize]
+@* no injection needed; AuthorizeView provides context *@
+
+<PageTitle>Profil</PageTitle>
+
+<h3>Profil</h3>
+
+<AuthorizeView>
+    <Authorized>
+        @if (context.User.Identity?.IsAuthenticated ?? false)
+        {
+            <dl class="row">
+                <dt class="col-sm-3">Felhasználó</dt>
+                <dd class="col-sm-9">@context.User.Identity!.Name</dd>
+                <dt class="col-sm-3">Email</dt>
+                <dd class="col-sm-9">@context.User.FindFirst("email")?.Value</dd>
+            </dl>
+            <a class="btn btn-primary" href="/Account/Manage" data-enhance-nav="false">Fiók kezelése</a>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-warning">A profil megtekintéséhez be kell jelentkezned.</div>
+        <a class="btn btn-outline-primary" href="/Account/Login" data-enhance-nav="false">Bejelentkezés</a>
+    </NotAuthorized>
+</AuthorizeView>

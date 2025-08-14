@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Images</value></data>
+  <data name="FilterLabel" xml:space="preserve"><value>Filter</value></data>
+  <data name="FilterPlaceholder" xml:space="preserve"><value>Filename, source...</value></data>
+  <data name="Uploading" xml:space="preserve"><value>Uploading…</value></data>
+  <data name="Upload" xml:space="preserve"><value>Upload</value></data>
+  <data name="NoImages" xml:space="preserve"><value>No images uploaded.</value></data>
+  <data name="SelectFromList" xml:space="preserve"><value>Select an image from the list.</value></data>
+  <data name="FreeAspect" xml:space="preserve"><value>Free</value></data>
+  <data name="SaveVariant" xml:space="preserve"><value>Save</value></data>
+  <data name="SaveAll" xml:space="preserve"><value>Save all</value></data>
+  <data name="Delete" xml:space="preserve"><value>Delete</value></data>
+  <data name="OpenVariant" xml:space="preserve"><value>Open</value></data>
+  <data name="NotSavedYet" xml:space="preserve"><value>Not saved yet</value></data>
+  <data name="ImageTitle" xml:space="preserve"><value>Image title</value></data>
+  <data name="AltText" xml:space="preserve"><value>Alt text</value></data>
+  <data name="Save" xml:space="preserve"><value>Save</value></data>
+  <data name="UploadDoneTitle" xml:space="preserve"><value>Upload finished</value></data>
+  <data name="UploadDoneBody" xml:space="preserve"><value>The upload has completed.</value></data>
+  <data name="UploadErrorTitle" xml:space="preserve"><value>Upload error ({0})</value></data>
+  <data name="UnknownError" xml:space="preserve"><value>unknown error</value></data>
+  <data name="UploadSuccessTitle" xml:space="preserve"><value>Upload successful</value></data>
+  <data name="UploadSuccessBody" xml:space="preserve"><value>The images were uploaded.</value></data>
+  <data name="GenericErrorTitle" xml:space="preserve"><value>Error</value></data>
+  <data name="UploadFailedBody" xml:space="preserve"><value>The upload failed.</value></data>
+  <data name="SaveErrorTitle" xml:space="preserve"><value>Save error</value></data>
+  <data name="CropAreaNotSet" xml:space="preserve"><value>The crop area is not set.</value></data>
+  <data name="CropAreaEmpty" xml:space="preserve"><value>The crop area is empty.</value></data>
+  <data name="CropSavedTitle" xml:space="preserve"><value>Crop saved</value></data>
+  <data name="SaveErrorGeneric" xml:space="preserve"><value>Error ({0})</value></data>
+  <data name="AllSavedTitle" xml:space="preserve"><value>All variants saved</value></data>
+  <data name="AllSavedBody" xml:space="preserve"><value>{0}/{1} variants</value></data>
+  <data name="SavedTitle" xml:space="preserve"><value>Saved</value></data>
+  <data name="MetaUpdatedBody" xml:space="preserve"><value>Metadata updated.</value></data>
+  <data name="GenericErrorWithStatus" xml:space="preserve"><value>Error ({0})</value></data>
+  <data name="ConfirmDelete" xml:space="preserve"><value>Are you sure to delete?\n{0}</value></data>
+  <data name="DeletedTitle" xml:space="preserve"><value>Deleted</value></data>
+  <data name="DeleteSuccessBody" xml:space="preserve"><value>The image and its variants were deleted.</value></data>
+  <data name="DeleteErrorTitle" xml:space="preserve"><value>Delete error</value></data>
+</root>

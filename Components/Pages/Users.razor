@@ -1,0 +1,220 @@
+@page "/users"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Identity
+@using NetRoll.Data
+@using Microsoft.Extensions.Localization
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject IStringLocalizer<NetRoll.Components.Pages.Users> L
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Af
+@inject IHttpContextAccessor Hca
+@inject NetRoll.Data.ApplicationDbContext Db
+@attribute [Authorize(Roles = "Admin")]
+
+@* Page title removed due to missing component registration; can be re-added if Layout supports it *@
+
+<h3>@L["Heading"]</h3>
+
+<form method="get" action="/users" class="row g-2 mb-3" data-enhance-nav="false">
+    <div class="col-sm-6 col-md-4">
+    <input type="text" class="form-control" name="q" value="@q" placeholder="@L["SearchPlaceholder"]" />
+    </div>
+    <div class="col-sm-6 col-md-6 d-flex align-items-center gap-3 flex-wrap">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="f-admin" name="role" value="Admin" checked="@filterAdmin" />
+            <label class="form-check-label" for="f-admin">@L["Admin"]</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="f-editor" name="role" value="Editor" checked="@filterEditor" />
+            <label class="form-check-label" for="f-editor">@L["Editor"]</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="f-viewer" name="role" value="Viewer" checked="@filterViewer" />
+            <label class="form-check-label" for="f-viewer">@L["Viewer"]</label>
+        </div>
+    </div>
+    <div class="col-auto">
+    <button class="btn btn-outline-secondary" type="submit">@L["Search"]</button>
+    </div>
+    <div class="col-12 d-flex flex-wrap gap-2 mt-2">
+        <select name="planFilter" class="form-select form-select-sm" style="max-width:200px" value="@planFilter">
+            <option value="">@L["AllPlans"]</option>
+            <option value="__none__" selected="@("__none__"==planFilter)">@L["NoPlan"]</option>
+            @foreach (var p in plans)
+            {
+                <option value="@p.Name" selected="@(p.Name==planFilter)">@p.Name</option>
+            }
+        </select>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="f-pending" name="pending" value="1" checked="@filterPending" />
+            <label class="form-check-label" for="f-pending">@L["PendingPlan"]</label>
+        </div>
+    </div>
+</form>
+
+@if (ShowSaved)
+{
+    <div class="alert alert-success py-2">@L["Saved"]</div>
+}
+
+@if (users is null)
+{
+    <p>@L["Loading"]</p>
+}
+else
+{
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th>@L["Name"]</th>
+                <th>@L["Email"]</th>
+                <th class="text-center">@L["Admin"]</th>
+                <th class="text-center">@L["Editor"]</th>
+                <th class="text-center">@L["Viewer"]</th>
+                <th>@L["Plan"]</th>
+                <th class="text-end">@L["Save"]</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var u in users)
+        {
+            var existing = userRoles.TryGetValue(u.Id, out var set) ? set : new List<string>();
+            bool isAdmin = existing.Contains("Admin", StringComparer.OrdinalIgnoreCase);
+            bool isEditor = existing.Contains("Editor", StringComparer.OrdinalIgnoreCase);
+            bool isViewer = existing.Contains("Viewer", StringComparer.OrdinalIgnoreCase);
+            bool hasPendingPlan = pendingPlanUsers.Contains(u.Id);
+            <tr>
+                <td>
+                    @(u.UserName ?? u.Email)
+                    @if (hasPendingPlan)
+                    {
+                        <span class="badge rounded-pill text-bg-warning ms-1" title="@L["PendingPlanChange"]">!</span>
+                    }
+                </td>
+                <td>@u.Email</td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-inline-block">
+                        <input class="form-check-input" type="checkbox" name="roles" value="Admin" form="form-@u.Id" checked="@isAdmin" />
+                    </div>
+                </td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-inline-block">
+                        <input class="form-check-input" type="checkbox" name="roles" value="Editor" form="form-@u.Id" checked="@isEditor" />
+                    </div>
+                </td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-inline-block">
+                        <input class="form-check-input" type="checkbox" name="roles" value="Viewer" form="form-@u.Id" checked="@isViewer" />
+                    </div>
+                </td>
+                <td>
+                    <select class="form-select form-select-sm" name="planName" form="form-@u.Id">
+                        <option value="">@L["PlanDefault"]</option>
+                        @foreach (var p in plans)
+                        {
+                            <option value="@p.Name" selected="@(string.Equals(u.PlanName, p.Name, StringComparison.OrdinalIgnoreCase))">@p.Name</option>
+                        }
+                    </select>
+                </td>
+                <td class="text-end">
+                    <form id="form-@u.Id" method="post" action="/Account/SetRolesAndPlan" data-enhance-nav="false">
+                        <input type="hidden" name="__RequestVerificationToken" value="@antiToken" />
+                        <input type="hidden" name="userId" value="@u.Id" />
+                        <input type="hidden" name="returnUrl" value="@currentUrl" />
+                        <button class="btn btn-sm btn-primary" type="submit">@L["Save"]</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ApplicationUser>? users;
+    private Dictionary<string, List<string>> userRoles = new();
+    private string currentUrl = "/users";
+
+    [Inject] NavigationManager Navigation { get; set; } = default!;
+
+    [SupplyParameterFromQuery(Name = "q")] public string? q { get; set; }
+    [SupplyParameterFromQuery(Name = "saved")] public string? saved { get; set; }
+    [SupplyParameterFromQuery(Name = "role")] public string[]? role { get; set; }
+    [SupplyParameterFromQuery(Name = "planFilter")] public string? planFilter { get; set; }
+    [SupplyParameterFromQuery(Name = "pending")] public string? pending { get; set; }
+
+    private bool ShowSaved => string.Equals(saved, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(saved, "1", StringComparison.OrdinalIgnoreCase);
+
+    private bool filterAdmin => roleSet.Contains("Admin");
+    private bool filterEditor => roleSet.Contains("Editor");
+    private bool filterViewer => roleSet.Contains("Viewer");
+    private HashSet<string> roleSet = new(StringComparer.OrdinalIgnoreCase);
+    private List<NetRoll.Models.PlanDefinition> plans = new();
+    private string? antiToken;
+    private HashSet<string> pendingPlanUsers = new();
+    private bool filterPending => string.Equals(pending, "1", StringComparison.OrdinalIgnoreCase);
+
+    [Inject] NetRoll.Services.PlanService PlanService { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+    // Build role filter set from query
+        roleSet = new HashSet<string>(role ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+
+        // current URL (relative) to return after POST
+        var rel = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+        currentUrl = string.IsNullOrWhiteSpace(rel) || rel == "/" ? "/users" : rel;
+
+        // Load and optionally filter users by query `q`
+        var queryable = UserManager.Users.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var term = q.Trim();
+            queryable = queryable.Where(u => (u.UserName != null && u.UserName.Contains(term))
+                                        || (u.Email != null && u.Email.Contains(term)));
+        }
+
+        users = queryable.OrderBy(u => u.UserName).ToList();
+        userRoles.Clear();
+        foreach (var u in users)
+        {
+            var roles = await UserManager.GetRolesAsync(u);
+            userRoles[u.Id] = roles.ToList();
+        }
+
+        // If role filters specified, keep users who have ANY of the selected roles
+        if (roleSet.Count > 0)
+        {
+            users = users.Where(u => userRoles.TryGetValue(u.Id, out var rs) && rs.Any(r => roleSet.Contains(r))).ToList();
+        }
+        // Plan filter
+        if (!string.IsNullOrWhiteSpace(planFilter))
+        {
+            if (planFilter == "__none__")
+                users = users.Where(u => string.IsNullOrEmpty(u.PlanName)).ToList();
+            else
+                users = users.Where(u => string.Equals(u.PlanName, planFilter, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        // Pending filter
+        if (filterPending)
+        {
+            users = users.Where(u => pendingPlanUsers.Contains(u.Id)).ToList();
+        }
+
+        plans = PlanService.GetPlans().ToList();
+        // Collect users with pending plan change requests
+        pendingPlanUsers = Db.PlanChangeRequests
+            .Where(r => r.Status == NetRoll.Models.PlanChangeStatus.Pending)
+            .Select(r => r.UserId)
+            .Distinct()
+            .ToHashSet();
+        // Antiforgery token (once per load)
+        if (Hca.HttpContext != null)
+        {
+            var tokens = Af.GetAndStoreTokens(Hca.HttpContext);
+            antiToken = tokens.RequestToken;
+        }
+    }
+}

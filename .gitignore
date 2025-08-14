@@ -1,0 +1,24 @@
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+*.cache
+*.log
+*.ldb
+.env
+.env.*
+/appsettings.*.local.json
+/appsettings.*.secrets.json
+UserSecrets/
+.node_modules/
+wwwroot-protected/
+# Publish artifacts
+**/publish/
+# Rider / VS Code
+.idea/
+.vscode/
+# Coverage
+coverage/
+# EF Core design-time bundle
+MigrationsBundle/

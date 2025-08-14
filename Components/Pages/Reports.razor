@@ -1,0 +1,244 @@
+@page "/reports"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject Microsoft.AspNetCore.Identity.UserManager<NetRoll.Data.ApplicationUser> UserManager
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+@inject IWebHostEnvironment Env
+@inject Microsoft.JSInterop.IJSRuntime JS
+@inject Microsoft.Extensions.Localization.IStringLocalizer<NetRoll.Components.Pages.Reports> L
+
+<h3>@L["PageTitle"]</h3>
+
+@if (loading)
+{
+    <div class="text-muted">@L["Loading"]</div>
+}
+else if (userId is null)
+{
+    <div class="alert alert-warning">@L["NotLoggedIn"]</div>
+}
+else
+{
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title">@L["CardOriginalTitle"]</h6>
+                    <div><strong>@L["CountLabel"]</strong> @originalCount</div>
+                    <div><strong>@L["SizeLabel"]</strong> @FormatMB(originalBytes)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title">@L["CardCroppedTitle"]</h6>
+                    <div><strong>@L["CountLabel"]</strong> @croppedCount</div>
+                    <div><strong>@L["SizeLabel"]</strong> @FormatMB(croppedBytes)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h6 class="card-title">@L["CardTotalTitle"]</h6>
+                    <div><strong>@L["TotalFilesLabel"]</strong> @(originalCount + croppedCount)</div>
+                    <div><strong>@L["SizeLabel"]</strong> @FormatMB(originalBytes + croppedBytes)</div>
+                    <div class="mt-2 d-flex flex-wrap gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => LoadAsync(false)">@L["RefreshButton"]</button>
+                        <button class="btn btn-sm btn-outline-secondary" title="@L["ForceReloadHint"]" @onclick="() => LoadAsync(true)">@L["ForceReloadButton"]</button>
+                    </div>
+                    <div class="small text-muted mt-2">@L["CacheInfo", string.Format("{0:HH:mm:ss}", lastLoadedLocal)]</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h5 class="mt-4 mb-2">@L["SectionVariantsTitle"]</h5>
+    @if (variantStats.Count == 0)
+    {
+        <div class="text-muted">@L["NoVariants"]</div>
+    }
+    else
+    {
+        <div class="table-responsive small">
+            <table class="table table-sm table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>@L["TableHeaderFolder"]</th>
+                        <th class="text-end">@L["TableHeaderCount"]</th>
+                        <th class="text-end">@L["TableHeaderSizeMB"]</th>
+                        <th class="text-end">@L["TableHeaderPercent"]</th>
+                        <th class="text-center">@L["TableHeaderActions"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var v in variantStats.OrderBy(v => v.Name))
+                {
+                    <tr>
+                        <td>@v.Name</td>
+                        <td class="text-end">@v.Count</td>
+                        <td class="text-end">@v.MegaBytes.ToString("0.00")</td>
+                        <td class="text-end">@v.PercentOfTotal.ToString("0.0")%</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteVariant(v.Name)">@L["DeleteVariantButton"]</button>
+                        </td>
+                    </tr>
+                }
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th>@L["TableFooterTotal"]</th>
+                        <th class="text-end">@croppedCount</th>
+                        <th class="text-end">@( (croppedBytes / 1024d / 1024d).ToString("0.00") )</th>
+                        <th class="text-end">@TotalPercentCropped.ToString("0.0")%</th>
+                        <th></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private string? userId;
+    private bool loading = true;
+    private int originalCount;
+    private long originalBytes;
+    private int croppedCount;
+    private long croppedBytes;
+    private List<VariantStat> variantStats = new();
+    private DateTime? lastLoadedUtc;
+    private DateTime? lastLoadedLocal => lastLoadedUtc?.ToLocalTime();
+
+    private double TotalPercentCropped => (originalBytes + croppedBytes) > 0 ? (croppedBytes * 100.0 / (originalBytes + croppedBytes)) : 0;
+
+    private class VariantStat
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Count { get; set; }
+        public long Bytes { get; set; }
+        public double MegaBytes => Bytes / 1024d / 1024d;
+        public double PercentOfTotal { get; set; }
+    }
+
+    // Egyszerű cache felhasználónként (statikus dictionary)
+    private record CacheEntry(DateTime FetchedUtc, int OriginalCount, long OriginalBytes, int CroppedCount, long CroppedBytes, List<VariantStat> Variants);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, CacheEntry> _cache = new();
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(30);
+
+    protected override async Task OnInitializedAsync()
+    {
+        userId = UserManager.GetUserId(Http.HttpContext!.User);
+        if (userId != null)
+        {
+            await LoadAsync(false);
+        }
+        loading = false;
+    }
+
+    private async Task LoadAsync(bool force)
+    {
+        if (userId is null) return;
+        try
+        {
+            if (!force && _cache.TryGetValue(userId, out var entry) && (DateTime.UtcNow - entry.FetchedUtc) < CacheDuration)
+            {
+                ApplyEntry(entry);
+                return;
+            }
+            // Párhuzamos feldolgozás
+            var root = Path.Combine(Env.ContentRootPath, "wwwroot-protected", "media", userId);
+            var originalDir = Path.Combine(root, "original");
+            int oCount = 0; long oBytes = 0;
+            if (Directory.Exists(originalDir))
+            {
+                try
+                {
+                    var files = Directory.GetFiles(originalDir);
+                    oCount = files.Length;
+                    long sum = 0;
+                    foreach (var f in files)
+                    {
+                        try { var fi = new FileInfo(f); sum += fi.Length; } catch { }
+                    }
+                    oBytes = sum;
+                } catch { }
+            }
+            int cCount = 0; long cBytes = 0;
+            var list = new List<VariantStat>();
+            var resizedRoot = Path.Combine(root, "resized");
+            if (Directory.Exists(resizedRoot))
+            {
+                var dirs = Directory.GetDirectories(resizedRoot);
+                var tasks = dirs.Select(dir => Task.Run(() => {
+                    var name = Path.GetFileName(dir);
+                    int count = 0; long bytes = 0;
+                    try
+                    {
+                        foreach (var f in Directory.GetFiles(dir))
+                        {
+                            try { var fi = new FileInfo(f); bytes += fi.Length; count++; } catch { }
+                        }
+                    } catch { }
+                    return new VariantStat { Name = name, Count = count, Bytes = bytes };
+                })).ToArray();
+                var results = await Task.WhenAll(tasks);
+                foreach (var v in results.Where(r => r.Count > 0))
+                {
+                    list.Add(v);
+                    cCount += v.Count; cBytes += v.Bytes;
+                }
+            }
+            // Százalékok számítása az összes tárhelyhez viszonyítva
+            long totalBytes = oBytes + cBytes;
+            foreach (var v in list)
+            {
+                v.PercentOfTotal = totalBytes > 0 ? (v.Bytes * 100.0 / totalBytes) : 0;
+            }
+            var newEntry = new CacheEntry(DateTime.UtcNow, oCount, oBytes, cCount, cBytes, list.Select(v => new VariantStat { Name = v.Name, Count = v.Count, Bytes = v.Bytes, PercentOfTotal = v.PercentOfTotal }).ToList());
+            _cache[userId] = newEntry;
+            ApplyEntry(newEntry);
+        }
+        catch (Exception ex)
+        {
+            try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["ErrorTitle"], body = ex.Message, type = "danger" }); } catch { }
+        }
+    }
+
+    private void ApplyEntry(CacheEntry entry)
+    {
+        originalCount = entry.OriginalCount;
+        originalBytes = entry.OriginalBytes;
+        croppedCount = entry.CroppedCount;
+        croppedBytes = entry.CroppedBytes;
+        variantStats = entry.Variants.Select(v => new VariantStat { Name = v.Name, Count = v.Count, Bytes = v.Bytes, PercentOfTotal = v.PercentOfTotal }).ToList();
+        lastLoadedUtc = entry.FetchedUtc;
+        StateHasChanged();
+    }
+
+    private async Task DeleteVariant(string variantFolder)
+    {
+        if (userId is null) return;
+        try
+        {
+            var ok = await JS.InvokeAsync<bool>("confirmModal", string.Format((string)L["DeleteConfirm"], variantFolder));
+            if (!ok) return;
+            var root = Path.Combine(Env.ContentRootPath, "wwwroot-protected", "media", userId, "resized", variantFolder);
+            if (Directory.Exists(root))
+            {
+                try { Directory.Delete(root, true); } catch { }
+            }
+            _cache.TryRemove(userId, out _);
+            await LoadAsync(true);
+            try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["DeleteSuccessTitle"], body = (string)L["DeleteSuccessBody"], type = "success" }); } catch { }
+        }
+        catch (Exception ex)
+        {
+            try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["DeleteErrorTitle"], body = ex.Message, type = "danger" }); } catch { }
+        }
+    }
+
+    private string FormatMB(long bytes) => (bytes / 1024d / 1024d).ToString("0.00") + " MB";
+}

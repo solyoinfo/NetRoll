@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Dashboard" xml:space="preserve"><value>Kezdőlap</value></data>
+  <data name="Users" xml:space="preserve"><value>Felhasználók</value></data>
+  <data name="MasterData" xml:space="preserve"><value>Törzsadatok</value></data>
+  <data name="Languages" xml:space="preserve"><value>Nyelvek</value></data>
+  <data name="Categories" xml:space="preserve"><value>Kategóriák</value></data>
+  <data name="Images" xml:space="preserve"><value>Képek</value></data>
+  <data name="Settings" xml:space="preserve"><value>Beállítások</value></data>
+  <data name="EmailSettings" xml:space="preserve"><value>Email beállítások</value></data>
+  <data name="ImageSettings" xml:space="preserve"><value>Képbeállítások</value></data>
+  <data name="Reports" xml:space="preserve"><value>Jelentések</value></data>
+  <data name="Logout" xml:space="preserve"><value>Kijelentkezés</value></data>
+</root>

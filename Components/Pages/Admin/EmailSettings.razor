@@ -1,0 +1,117 @@
+@page "/admin/email-settings"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Http
+@using NetRoll.Data
+@using NetRoll.Models
+@using NetRoll.Components.Account.Shared
+
+@attribute [Authorize(Roles = "Admin")]
+
+@inject ApplicationDbContext Db
+@inject NetRoll.Services.SmtpEmailSender Emailer
+@inject IHttpContextAccessor Http
+
+<PageTitle>Email beállítások</PageTitle>
+
+<h3>Email beállítások</h3>
+<StatusMessage Message="@message" />
+
+<EditForm Model="Model" OnValidSubmit="SaveAsync" data-enhance="false" FormName="email-settings">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Model.SmtpHost" id="Host" class="form-control" placeholder="SMTP szerver" autocomplete="off" name="Model.SmtpHost" />
+                <label for="Host" class="form-label">SMTP szerver</label>
+                <ValidationMessage For="() => Model.SmtpHost" class="text-danger" />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="form-floating mb-3">
+                <InputNumber @bind-Value="Model.Port" id="Port" class="form-control" name="Model.Port" />
+                <label for="Port" class="form-label">Port</label>
+            </div>
+        </div>
+        <div class="col-md-3 d-flex align-items-center">
+            <div class="form-check mt-3">
+                <InputCheckbox @bind-Value="Model.UseSsl" id="UseSsl" class="form-check-input" name="Model.UseSsl" />
+                <label for="UseSsl" class="form-check-label">SSL/TLS</label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Model.Username" id="Username" class="form-control" placeholder="Felhasználónév" name="Model.Username" />
+                <label for="Username" class="form-label">Felhasználónév</label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Model.Password" id="Password" type="password" class="form-control" placeholder="Jelszó" name="Model.Password" />
+                <label for="Password" class="form-label">Jelszó</label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Model.FromName" id="FromName" class="form-control" placeholder="Feladó neve" name="Model.FromName" />
+                <label for="FromName" class="form-label">Feladó neve</label>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Model.FromEmail" id="FromEmail" class="form-control" placeholder="Feladó e-mail" name="Model.FromEmail" />
+                <label for="FromEmail" class="form-label">Feladó e-mail</label>
+                <ValidationMessage For="() => Model.FromEmail" class="text-danger" />
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Mentés</button>
+</EditForm>
+
+@code {
+    private string? message;
+    [Parameter, SupplyParameterFromForm]
+    public NetRoll.Models.EmailSettings Model { get; set; } = new NetRoll.Models.EmailSettings();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var isPost = string.Equals(Http.HttpContext?.Request?.Method, "POST", StringComparison.OrdinalIgnoreCase);
+        if (!isPost)
+        {
+            var existing = await Db.EmailSettings.AsNoTracking().OrderBy(e => e.Id).FirstOrDefaultAsync();
+            Model = existing ?? new NetRoll.Models.EmailSettings();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        // Enhanced POST fallback: ha a binder nem töltötte be a SmtpHost-ot, olvassuk ki a formból
+        var form = Http.HttpContext?.Request?.Form;
+        if (string.IsNullOrWhiteSpace(Model.SmtpHost) && form is not null && form.ContainsKey("Model.SmtpHost"))
+        {
+            Model.SmtpHost = form["Model.SmtpHost"].ToString();
+        }
+    // Normalizálás: whitespace lecsapása a SmtpHost-ról
+    if (!string.IsNullOrWhiteSpace(Model.SmtpHost)) Model.SmtpHost = Model.SmtpHost.Trim();
+        var existing = await Db.EmailSettings.AsNoTracking().FirstOrDefaultAsync();
+        if (existing is null)
+        {
+            // Új rekord; ne állítsunk be explicit Id-t, hagyjuk az identity-t
+            Db.EmailSettings.Add(Model);
+        }
+        else
+        {
+            // Frissítés: tartsuk meg a meglévő Id-t
+            Model.Id = existing.Id;
+            Db.EmailSettings.Update(Model);
+        }
+        await Db.SaveChangesAsync();
+        message = "Beállítások elmentve.";
+    }
+
+    // Teszt e-mail űrlap eltávolítva – külön oldalra tehető később
+}

@@ -1,0 +1,154 @@
+﻿@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<NetRoll.Components.SideMenu> L
+@inject NetRoll.Services.MenuService MenuService
+@inject NavigationManager Nav
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject Microsoft.JSInterop.IJSRuntime JS
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+
+<div class="sidebar bg-dark text-white">
+    <Microsoft.AspNetCore.Components.Authorization.AuthorizeView>
+        <Authorized>
+            <ul class="nav flex-column">
+                @{ var items = MenuService.GetMenuItems(); }
+                @* Dashboard mindig *@
+                @if (items.FirstOrDefault(i => i.Url == "/") is { } dashboard)
+                {
+                    <li class="nav-item">
+                        <a class="nav-link text-white sidebar-link" href="@dashboard.Url" title="@dashboard.Title">
+                            <i class="@dashboard.Icon"></i> <span class="label">@dashboard.Title</span>
+                        </a>
+                    </li>
+                }
+
+                @foreach (var item in items.Where(i => i.Url != "/" && i.Url != "/Logout"))
+                {
+                    // Admin-only főmenük: Users, Reports ("/users", "/reports"). Settings menün belül csak EmailSettings admin.
+                    bool adminOnly = item.Url == "/users" || item.Url == "/reports";
+                    if (adminOnly && !isAdmin) continue;
+
+                    // Settings gyermek szűrés (EmailSettings admin, ImageSettings bárki)
+                    var children = item.Children;
+                    if (children is not null && children.Count > 0)
+                    {
+                        var filteredChildren = children
+                            .Where(c => c.Url == "/settings/image" || (c.Url == "/admin/email-settings" ? isAdmin : true))
+                            .ToList();
+                        if (filteredChildren.Count == 0) continue; // ne jelenjen meg üres
+
+                        var key = $"menu:{item.Url}";
+                        var expanded = expandedKey == key;
+                        <li class="nav-item">
+                            <button type="button" @onclick="() => ToggleMenu(key)" class="nav-link text-white sidebar-link btn btn-link text-start w-100 @(expanded ? "active" : null)" title="@item.Title" style="text-decoration:none">
+                                <i class="@item.Icon"></i> <span class="label">@item.Title</span>
+                            </button>
+                            <ul class="nav flex-column ms-3 submenu @(expanded ? "show" : "hide")">
+                                @foreach (var child in filteredChildren)
+                                {
+                                    <li class="nav-item">
+                                        <a class="nav-link text-white sidebar-link @(IsActive(child.Url) ? "active" : null)" href="@child.Url" title="@child.Title">
+                                            <i class="@child.Icon"></i> <span class="label">@child.Title</span>
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-white sidebar-link @(IsActive(item.Url) ? "active" : null)" href="@item.Url" title="@item.Title">
+                                <i class="@item.Icon"></i> <span class="label">@item.Title</span>
+                            </a>
+                        </li>
+                    }
+                }
+                <li class="nav-item">
+                    <a href="/Account/Logout" class="nav-link text-white sidebar-link" data-enhance-nav="false" title="@L["Logout"]">
+                        <i class="oi oi-account-logout"></i> <span class="label">@L["Logout"]</span>
+                    </a>
+                </li>
+            </ul>
+        </Authorized>
+    <NotAuthorized>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link text-white sidebar-link" href="/Account/Login" data-enhance-nav="false">
+                        <i class="oi oi-account-login"></i> <span class="label">@L["Login"]</span>
+                    </a>
+                </li>
+            </ul>
+        </NotAuthorized>
+    </Microsoft.AspNetCore.Components.Authorization.AuthorizeView>
+</div>
+
+<style>
+    .sidebar {
+        width: 250px;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        padding-top: 60px;
+    }
+    body.sidebar-collapsed .sidebar { width: 70px; }
+    body.sidebar-collapsed .sidebar:hover { width: 250px; }
+    .sidebar .sidebar-link { display: flex; align-items: center; gap: .6rem; }
+    body.sidebar-collapsed .sidebar .label { display: none; }
+    body.sidebar-collapsed .sidebar:hover .label { display: inline; }
+    /* toggle removed; navbar provides the toggle button */
+    @@media (max-width: 768px) {
+        .sidebar { transform: translateX(0); transition: transform .2s ease-in-out; }
+    body.sidebar-collapsed .sidebar { transform: translateX(-100%); width: 250px; }
+    body.sidebar-collapsed .sidebar:hover { transform: translateX(0); }
+    }
+    /* Adjust main content margin when sidebar is collapsed */
+    body.sidebar-collapsed .sidebar ~ .content { margin-left: 70px !important; }
+    body.sidebar-collapsed .sidebar:hover ~ .content { margin-left: 250px !important; }
+
+    .sidebar .nav-link.active { background: rgba(255,255,255,.15); border-radius: .25rem; }
+    .submenu.hide { display: none; }
+    .submenu.show { display: block; }
+</style>
+
+@code {
+    private string? expandedKey;
+    private bool isAdmin;
+    [CascadingParameter] private Task<AuthenticationState>? AuthStateTask { get; set; }
+    private bool IsActive(string href)
+    {
+        var uri = Nav.ToBaseRelativePath(Nav.Uri);
+        if (!uri.StartsWith("/")) uri = "/" + uri;
+        var target = href.TrimEnd('/');
+        return uri.Equals(target, StringComparison.OrdinalIgnoreCase)
+               || uri.StartsWith(target + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (AuthStateTask != null)
+            {
+                try
+                {
+                    var authState = await AuthStateTask;
+                    var user = authState.User;
+                    isAdmin = user.IsInRole("Admin") || user.HasClaim(c => c.Type == "IsAdmin" && c.Value == "true");
+                }
+                catch { }
+            }
+            try { expandedKey = await JS.InvokeAsync<string?>("netrollStore.get", "menu:expanded"); StateHasChanged(); } catch { }
+        }
+    }
+
+    private async Task ToggleMenu(string key)
+    {
+        expandedKey = (expandedKey == key) ? null : key; // accordion: egy nyitva
+        StateHasChanged();
+        try { await JS.InvokeVoidAsync("netrollStore.set", "menu:expanded", expandedKey ?? ""); } catch { }
+    }
+}

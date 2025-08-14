@@ -1,0 +1,255 @@
+@page "/settings/image"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
+@inject NetRoll.Data.ApplicationDbContext Db
+@inject Microsoft.AspNetCore.Identity.UserManager<NetRoll.Data.ApplicationUser> UserManager
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+@inject Microsoft.JSInterop.IJSRuntime JS
+@using System.Text.RegularExpressions
+@inject Microsoft.Extensions.Localization.IStringLocalizer<NetRoll.Components.Pages.Settings.ImageSettings> L
+
+<h3>@L["ImageSettingsTitle"]</h3>
+
+@if (loading)
+{
+  <div class="text-muted">@L["Loading"]</div>
+}
+else if (userId is null)
+{
+  <div class="alert alert-warning">@L["NotLoggedIn"]</div>
+}
+else
+{
+  <form @onsubmit="OnSubmit" @onsubmit:preventDefault>
+    <div class="row g-3">
+      <div class="col-sm-3">
+  <label class="form-label">@L["MaxWidthLabel"]</label>
+  <input type="number" class="form-control" @bind="maxWidth" @oninput="_=> Validate()" />
+      </div>
+      <div class="col-sm-3">
+  <label class="form-label">@L["MaxHeightLabel"]</label>
+  <input type="number" class="form-control" @bind="maxHeight" @oninput="_=> Validate()" />
+      </div>
+      <div class="col-sm-6">
+  <label class="form-label">@L["AspectListLabel"]</label>
+  <input type="text" class="form-control" @bind="aspectList" @oninput="_=> Validate()" />
+  <div class="form-text">@L["AspectListHint"]</div>
+      </div>
+    </div>
+    <div class="row g-3 mt-1">
+      <div class="col-sm-6">
+  <label class="form-label">@L["SaveAllModeLabel"]</label>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="saveAllMode" id="modeSingle" value="single" @onchange="e => ChangeMode(e)" checked="@(saveAllMode == "single")" />
+          <label class="form-check-label" for="modeSingle">@L["ModeSingle"]</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="saveAllMode" id="modePerAspect" value="perAspect" @onchange="e => ChangeMode(e)" checked="@(saveAllMode == "perAspect")" />
+          <label class="form-check-label" for="modePerAspect">@L["ModePerAspect"]</label>
+        </div>
+  <div class="form-text">@L["ModeInfo"]</div>
+      </div>
+    </div>
+    @if (validationErrors.Count > 0)
+    {
+      <div class="mt-2 alert alert-danger py-2 mb-0">
+        <ul class="mb-0 ps-3">
+          @foreach (var e in validationErrors)
+          {
+            <li>@e</li>
+          }
+        </ul>
+      </div>
+      <div class="small text-muted mt-1">[debug] Hiba darabszám: @validationErrors.Count | Aspects: @aspectList</div>
+    }
+    <div class="mt-3 d-flex flex-column gap-2">
+      <div class="d-flex gap-2">
+  <button type="button" class="btn btn-primary" disabled="@saving" @onclick="OnSubmit">@L["SaveButton"]</button>
+  <button type="button" class="btn btn-outline-secondary" disabled="@saving" @onclick="ReloadAsync">@L["ResetButton"]</button>
+        @if (savedOk)
+        {
+          <span class="text-success align-self-center">@L["SavedShort"]</span>
+        }
+      </div>
+      <div class="small d-flex flex-wrap gap-3 align-items-center" aria-live="polite">
+        @if (saving)
+        {
+          <span class="text-info d-inline-flex align-items-center">
+            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>@L["SavingInProgress"]
+          </span>
+        }
+        @if (!saving && savedOk)
+        {
+          <span class="text-success d-inline-flex align-items-center">
+            <i class="bi bi-check-circle me-1"></i>@string.Format(L["SavedAt"], lastSaved?.ToLocalTime().ToString("HH:mm:ss"))
+          </span>
+        }
+        @if (validationErrors.Count > 0)
+        {
+          <span class="text-danger d-inline-flex align-items-center" title="@L["ErrorCountTitle"]">
+            <i class="bi bi-exclamation-triangle me-1"></i>@string.Format(L["ErrorCount"], validationErrors.Count)
+          </span>
+        }
+        <span class="text-secondary d-inline-flex align-items-center" title="@L["SaveAllModeTitle"]">
+          <i class="bi bi-aspect-ratio me-1"></i>@(saveAllMode == "perAspect" ? (string)L["ModeStatusPerAspect"] : (string)L["ModeStatusSingle"]) 
+        </span>
+      </div>
+    </div>
+  </form>
+}
+
+@code {
+  private string? userId;
+  private bool loading = true;
+  private bool saving = false;
+  private bool savedOk = false;
+  private int maxWidth = 900;
+  private int maxHeight = 900;
+  private string aspectList = "1:1,4:3,3:4";
+  private string saveAllMode = "single"; // single | perAspect
+  private List<string> validationErrors = new();
+  private DateTime? lastSaved;
+
+  protected override async Task OnInitializedAsync()
+  {
+    userId = UserManager.GetUserId(Http.HttpContext!.User);
+    if (userId != null)
+    {
+      await LoadAsync();
+    }
+    loading = false;
+  }
+
+  private async Task LoadAsync()
+  {
+    var img = await Db.UserImageSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId);
+    if (img != null)
+    {
+      maxWidth = img.MaxWidth;
+      maxHeight = img.MaxHeight;
+    }
+    var aspectSetting = await Db.UserSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId && s.Key == "Image.Aspects");
+    if (aspectSetting != null && !string.IsNullOrWhiteSpace(aspectSetting.Value))
+    {
+      aspectList = aspectSetting.Value;
+    }
+    var modeSetting = await Db.UserSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId && s.Key == "Image.SaveAllMode");
+    if (modeSetting != null && !string.IsNullOrWhiteSpace(modeSetting.Value))
+    {
+      if (modeSetting.Value == "perAspect" || modeSetting.Value == "single") saveAllMode = modeSetting.Value;
+    }
+  Validate();
+  }
+
+  private async Task ReloadAsync()
+  {
+    savedOk = false;
+    await LoadAsync();
+  }
+
+  private async Task SaveAsync()
+  {
+    if (userId == null) return;
+    try
+    {
+      if (!Validate())
+      {
+  try { await JS.InvokeVoidAsync("showToast", new { title = L["Error"], body = L["InvalidData", "Érvénytelen adatok."], type = "danger" }); } catch { }
+        return;
+      }
+      saving = true; savedOk = false;
+      var img = await Db.UserImageSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId);
+      if (img == null)
+      {
+        img = new NetRoll.Models.UserImageSettings { OwnerUserId = userId, MaxWidth = maxWidth, MaxHeight = maxHeight };
+        Db.UserImageSettings.Add(img);
+      }
+      else
+      {
+        img.MaxWidth = maxWidth; img.MaxHeight = maxHeight;
+      }
+      var key = "Image.Aspects";
+      var normalized = NormalizeAspects(aspectList);
+      var existing = await Db.UserSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId && s.Key == key);
+      if (existing == null)
+      {
+        Db.UserSettings.Add(new NetRoll.Models.UserSetting { OwnerUserId = userId, Key = key, Value = normalized });
+      }
+      else
+      {
+        existing.Value = normalized;
+      }
+      // Mentjük a SaveAll módot
+      var modeKey = "Image.SaveAllMode";
+      var existingMode = await Db.UserSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId && s.Key == modeKey);
+      if (existingMode == null)
+      {
+        Db.UserSettings.Add(new NetRoll.Models.UserSetting { OwnerUserId = userId, Key = modeKey, Value = saveAllMode });
+      }
+      else
+      {
+        existingMode.Value = saveAllMode;
+      }
+      await Db.SaveChangesAsync();
+      savedOk = true;
+  lastSaved = DateTime.UtcNow;
+  try { await JS.InvokeVoidAsync("showToast", new { title = L["Saved"], body = L["SettingsSaved", "Beállítások elmentve."], type = "success" }); } catch { }
+    }
+    catch (Exception ex)
+    {
+  try { await JS.InvokeVoidAsync("showToast", new { title = L["Error"], body = ex.Message, type = "danger" }); } catch { }
+    }
+    finally { saving = false; }
+  }
+
+  private async Task OnSubmit()
+  {
+    await SaveAsync();
+  }
+
+  // ForceSave eltávolítva – Mentés mindig elérhető (hibák ellenére is)
+
+  private bool Validate()
+  {
+    validationErrors.Clear();
+    if (maxWidth <= 0) validationErrors.Add("A max szélesség legyen pozitív.");
+    if (maxHeight <= 0) validationErrors.Add("A max magasság legyen pozitív.");
+    if (maxWidth > 10000) validationErrors.Add("A max szélesség túl nagy (<=10000). ");
+    if (maxHeight > 10000) validationErrors.Add("A max magasság túl nagy (<=10000). ");
+    var tokens = aspectList.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    if (tokens.Length == 0) validationErrors.Add("Legalább egy képarány szükséges.");
+    var regex = new Regex("^\\d{1,3}:\\d{1,3}$");
+    foreach (var t in tokens)
+    {
+      if (!regex.IsMatch(t)) validationErrors.Add($"Érvénytelen képarány: {t}");
+      else
+      {
+        var parts = t.Split(':');
+        if (parts[0] == "0" || parts[1] == "0") validationErrors.Add($"Nem lehet 0 érték: {t}");
+      }
+    }
+    if (tokens.Length > 8) validationErrors.Add("Legfeljebb 8 képarány adható meg.");
+    StateHasChanged();
+    return validationErrors.Count == 0;
+  }
+
+  private string NormalizeAspects(string list)
+  {
+    var tokens = list.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(t => Regex.IsMatch(t, "^\\d{1,3}:\\d{1,3}$"))
+        .Select(t => t)
+        .Distinct()
+        .Take(8)
+        .ToList();
+    return string.Join(',', tokens);
+  }
+
+  private void ChangeMode(ChangeEventArgs e)
+  {
+    var val = e.Value?.ToString();
+    if (val == "single" || val == "perAspect") saveAllMode = val;
+  }
+}

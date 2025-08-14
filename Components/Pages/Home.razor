@@ -1,0 +1,102 @@
+﻿@page "/"
+
+@using NetRoll.Services
+@using Microsoft.AspNetCore.Identity
+@inject PlanService PlanService
+@inject UserManager<NetRoll.Data.ApplicationUser> UserMgr
+@inject NavigationManager Nav
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthState
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Af
+@inject IHttpContextAccessor Hca
+@inject Microsoft.Extensions.Localization.IStringLocalizer<Home> L
+
+<h1>@L["Welcome"]</h1>
+
+@if (plans == null)
+{
+	<p>@L["LoadingPlans"]</p>
+}
+else
+{
+	<div class="row g-3">
+		@foreach (var p in plans)
+		{
+			var isCurrent = string.Equals(currentPlan, p.Name, StringComparison.OrdinalIgnoreCase);
+			var hasPending = pendingRequests.Contains(p.Name);
+			<div class="col-md-4">
+				<div class="card h-100 @(isCurrent?"border-primary":"")">
+					<div class="card-header fw-bold">@PlanService.GetDisplayName(p.Name)</div>
+					<div class="card-body">
+						<div class="small mb-2">
+							Files: @p.MaxFileCount<br />
+							Storage: @(p.MaxStorageBytes/1024/1024) MB<br />
+							Products: @p.MaxProductCount
+						</div>
+						@if (!string.IsNullOrWhiteSpace(p.HtmlDescription))
+						{
+							<div class="plan-desc small" @onclick:stopPropagation="true" @onmousedown:stopPropagation="true">@((MarkupString)p.HtmlDescription!)</div>
+						}
+						@if (isCurrent)
+						{
+							<span class="badge text-bg-primary">@L["Current"]</span>
+						}
+						else
+						{
+							<form method="post" action="/Account/RequestPlanChange" class="d-inline">
+								<input type="hidden" name="__RequestVerificationToken" value="@antiToken" />
+								<input type="hidden" name="requestedPlan" value="@p.Name" />
+								<input type="hidden" name="returnUrl" value="/" />
+								<button class="btn btn-sm btn-outline-secondary" type="submit" disabled="@hasPending">@(hasPending?L["PendingApproval"]:L["RequestChange"])</button>
+							</form>
+						}
+					</div>
+				</div>
+			</div>
+		}
+	</div>
+}
+
+@if (requestedMessage != null)
+{
+	<div class="alert alert-info mt-3">@requestedMessage</div>
+}
+@* Hidden auto-submit form removed; using per-plan inline forms now *@
+
+@code {
+	private IReadOnlyList<NetRoll.Models.PlanDefinition>? plans;
+	private string? currentPlan;
+	private string? requestedMessage;
+	private string? antiToken;
+	// per-plan inline forms handle submission now
+	private HashSet<string> pendingRequests = new(StringComparer.OrdinalIgnoreCase);
+	protected override async Task OnInitializedAsync()
+	{
+		plans = PlanService.GetPlans();
+	var authState = await AuthState.GetAuthenticationStateAsync();
+	var user = await UserMgr.GetUserAsync(authState.User);
+		currentPlan = user?.PlanName;
+		if (Hca.HttpContext != null)
+		{
+			var tokens = Af.GetAndStoreTokens(Hca.HttpContext);
+			antiToken = tokens.RequestToken;
+			var q = System.Web.HttpUtility.ParseQueryString(Hca.HttpContext.Request.QueryString.Value ?? string.Empty);
+			if (q["planRequested"] == "1") requestedMessage = L["PlanRequestedMessage"]; 
+			else if (q["planAlreadyPending"] == "1") requestedMessage = L["PlanAlreadyPendingMessage"]; 
+			else if (q["planRateLimited"] == "1") requestedMessage = L["PlanRateLimitedMessage"]; 
+		}
+		// Load pending plan requests for current user
+		if (user != null && Hca.HttpContext != null)
+		{
+			var scope = Hca.HttpContext.RequestServices.CreateScope();
+			var db = scope.ServiceProvider.GetService<NetRoll.Data.ApplicationDbContext>();
+			if (db != null)
+			{
+				pendingRequests = db.PlanChangeRequests
+					.Where(r => r.UserId == user.Id && r.Status == NetRoll.Models.PlanChangeStatus.Pending)
+					.Select(r => r.RequestedPlan)
+					.ToHashSet(StringComparer.OrdinalIgnoreCase);
+			}
+		}
+	}
+	private void RequestChange(string planName) {}
+}

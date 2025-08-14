@@ -1,0 +1,77 @@
+@page "/admin/plan-requests"
+@using NetRoll.Models
+@inject NetRoll.Services.PlanService PlanService
+@inject NetRoll.Data.ApplicationDbContext Db
+@inject IHttpContextAccessor Hca
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Af
+@inject Microsoft.Extensions.Localization.IStringLocalizer<PlanRequests> L
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles="Admin")]
+
+<h3>@L["Heading"]</h3>
+@if (requests == null)
+{
+    <p>@L["Loading"]</p>
+}
+else if (requests.Count == 0)
+{
+    <p>@L["NoPending"]</p>
+}
+else
+{
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>@L["Id"]</th>
+                <th>@L["User"]</th>
+                <th>@L["Current"]</th>
+                <th>@L["Requested"]</th>
+                <th>@L["CreatedUtc"]</th>
+                <th>@L["Comment"]</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var r in requests)
+        {
+            <tr>
+                <td>@r.Id</td>
+                <td>@r.UserId</td>
+                <td>@r.CurrentPlan</td>
+                <td>@r.RequestedPlan</td>
+                <td>@r.CreatedUtc.ToString("u")</td>
+                <td>@r.Comment</td>
+                <td class="d-flex gap-1">
+                    <form method="post" action="/Account/ProcessPlanChange">
+                        <input type="hidden" name="__RequestVerificationToken" value="@token" />
+                        <input type="hidden" name="id" value="@r.Id" />
+                        <input type="hidden" name="action" value="approve" />
+                        <button class="btn btn-sm btn-success" type="submit">@L["Approve"]</button>
+                    </form>
+                    <form method="post" action="/Account/ProcessPlanChange">
+                        <input type="hidden" name="__RequestVerificationToken" value="@token" />
+                        <input type="hidden" name="id" value="@r.Id" />
+                        <input type="hidden" name="action" value="reject" />
+                        <button class="btn btn-sm btn-outline-danger" type="submit">@L["Reject"]</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<PlanChangeRequest>? requests;
+    private string? token;
+    protected override void OnInitialized()
+    {
+        if (Hca.HttpContext != null)
+        {
+            var t = Af.GetAndStoreTokens(Hca.HttpContext);
+            token = t.RequestToken;
+        }
+        requests = Db.PlanChangeRequests.Where(r => r.Status == PlanChangeStatus.Pending)
+            .OrderBy(r => r.CreatedUtc).Take(200).ToList();
+    }
+}

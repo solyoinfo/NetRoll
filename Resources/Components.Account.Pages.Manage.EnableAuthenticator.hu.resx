@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Hitelesítő alkalmazás beállítása</value></data>
+  <data name="Heading" xml:space="preserve"><value>Hitelesítő alkalmazás beállítása</value></data>
+  <data name="Intro" xml:space="preserve"><value>Hitelesítő alkalmazás használatához kövesd az alábbi lépéseket:</value></data>
+  <data name="DownloadAppLine" xml:space="preserve"><value>Tölts le kétlépcsős hitelesítő alkalmazást, például a Microsoft Authenticator-t vagy a Google Authenticator-t</value></data>
+  <data name="ScanOrEnterKey" xml:space="preserve"><value>Olvasd be a QR-kódot, vagy írd be ezt a kulcsot</value></data>
+  <data name="ScanOrEnterKeyTail" xml:space="preserve"><value>a kétlépcsős hitelesítő alkalmazásodba. A szóközök és a kis-/nagybetűk nem számítanak.</value></data>
+  <data name="QrInfo" xml:space="preserve"><value>Tudd meg, hogyan lehet</value></data>
+  <data name="QrInfoLink" xml:space="preserve"><value>engedélyezni a QR-kód generálást</value></data>
+  <data name="EnterCodeText" xml:space="preserve"><value>Miután beolvastad a QR-kódot vagy beírtad a kulcsot, az alkalmazás egy kódot ad. Ezt írd be az alábbi mezőbe.</value></data>
+  <data name="EnterCodePlaceholder" xml:space="preserve"><value>Írd be a kódot</value></data>
+  <data name="VerificationCodeLabel" xml:space="preserve"><value>Ellenőrző kód</value></data>
+  <data name="VerifyButton" xml:space="preserve"><value>Ellenőrzés</value></data>
+  <data name="InvalidCodeError" xml:space="preserve"><value>Hiba: érvénytelen ellenőrző kód.</value></data>
+  <data name="VerifiedMessage" xml:space="preserve"><value>A hitelesítő alkalmazás ellenőrizve.</value></data>
+  <data name="QrAlt" xml:space="preserve"><value>QR-kód hitelesítő alkalmazáshoz</value></data>
+</root>

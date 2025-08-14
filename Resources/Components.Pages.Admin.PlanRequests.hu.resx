@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Heading" xml:space="preserve"><value>Csomag váltási kérelmek</value></data>
+  <data name="Loading" xml:space="preserve"><value>Betöltés...</value></data>
+  <data name="NoPending" xml:space="preserve"><value>Nincs függő kérés.</value></data>
+  <data name="Id" xml:space="preserve"><value>Azonosító</value></data>
+  <data name="User" xml:space="preserve"><value>Felhasználó</value></data>
+  <data name="Current" xml:space="preserve"><value>Jelenlegi</value></data>
+  <data name="Requested" xml:space="preserve"><value>Kért</value></data>
+  <data name="CreatedUtc" xml:space="preserve"><value>Létrehozva (UTC)</value></data>
+  <data name="Comment" xml:space="preserve"><value>Megjegyzés</value></data>
+  <data name="Approve" xml:space="preserve"><value>Jóváhagy</value></data>
+  <data name="Reject" xml:space="preserve"><value>Elutasít</value></data>
+</root>

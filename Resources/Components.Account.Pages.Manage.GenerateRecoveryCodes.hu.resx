@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>2FA helyreállítási kódok generálása</value></data>
+  <data name="Heading" xml:space="preserve"><value>2FA helyreállítási kódok generálása</value></data>
+  <data name="WarningTitle" xml:space="preserve"><value>Ezeket a kódokat tartsd biztonságos helyen.</value></data>
+  <data name="WarningLoseAccess" xml:space="preserve"><value>Ha elveszíted az eszközöd és nincs meg a helyreállítási kód, nem fogsz tudni belépni a fiókodba.</value></data>
+  <data name="WarningResetKeyLine" xml:space="preserve"><value>Új helyreállítási kódok generálása nem módosítja a hitelesítő alkalmazások kulcsait. Ha a kulcsot szeretnéd megváltoztatni,</value></data>
+  <data name="ResetAuthenticatorLinkText" xml:space="preserve"><value>állítsd vissza a hitelesítő kulcsokat.</value></data>
+  <data name="GenerateButton" xml:space="preserve"><value>Helyreállítási kódok generálása</value></data>
+  <data name="GeneratedMessage" xml:space="preserve"><value>Új helyreállítási kódokat generáltál.</value></data>
+</root>

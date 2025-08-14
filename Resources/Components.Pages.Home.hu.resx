@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Welcome" xml:space="preserve"><value>Üdvözlet</value></data>
+  <data name="LoadingPlans" xml:space="preserve"><value>Csomagok betöltése...</value></data>
+  <data name="Current" xml:space="preserve"><value>Aktuális</value></data>
+  <data name="RequestChange" xml:space="preserve"><value>Váltás kérése</value></data>
+  <data name="PlanRequestedMessage" xml:space="preserve"><value>A kérelmed elküldve.</value></data>
+  <data name="PlanAlreadyPendingMessage" xml:space="preserve"><value>Már van egy függő kérelmed.</value></data>
+  <data name="PlanRateLimitedMessage" xml:space="preserve"><value>Kérlek várj pár percet az újabb kérés előtt.</value></data>
+</root>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, ...</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value></resheader>
+  <data name="PlansHeading" xml:space="preserve"><value>Csomagok</value></data>
+  <data name="Loading" xml:space="preserve"><value>Betöltés...</value></data>
+  <data name="Name" xml:space="preserve"><value>Név</value></data>
+  <data name="MaxFiles" xml:space="preserve"><value>Max fájlok</value></data>
+  <data name="MaxStorageMb" xml:space="preserve"><value>Max tárhely (MB)</value></data>
+  <data name="MaxProducts" xml:space="preserve"><value>Max termékek</value></data>
+  <data name="DescriptionHtml" xml:space="preserve"><value>Leírás (HTML)</value></data>
+  <data name="Add" xml:space="preserve"><value>Új</value></data>
+  <data name="Save" xml:space="preserve"><value>Mentés</value></data>
+  <data name="Saved" xml:space="preserve"><value>Elmentve.</value></data>
+</root>

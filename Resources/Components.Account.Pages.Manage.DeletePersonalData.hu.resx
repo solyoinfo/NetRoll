@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Személyes adatok törlése</value></data>
+  <data name="Heading" xml:space="preserve"><value>Személyes adatok törlése</value></data>
+  <data name="WarningLine" xml:space="preserve"><value>Az adatok törlésével a fiókod véglegesen eltávolításra kerül, és ez nem visszavonható.</value></data>
+  <data name="PasswordPlaceholder" xml:space="preserve"><value>Kérjük, add meg a jelszavad.</value></data>
+  <data name="PasswordLabel" xml:space="preserve"><value>Jelszó</value></data>
+  <data name="DeleteButton" xml:space="preserve"><value>Adatok törlése és fiók bezárása</value></data>
+  <data name="ErrorIncorrectPassword" xml:space="preserve"><value>Hiba: Helytelen jelszó.</value></data>
+</root>

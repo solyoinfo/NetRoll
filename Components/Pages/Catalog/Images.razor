@@ -1,0 +1,481 @@
+@page "/catalog/images"
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
+@inject NetRoll.Data.ApplicationDbContext Db
+@inject Microsoft.AspNetCore.Identity.UserManager<NetRoll.Data.ApplicationUser> UserManager
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+@inject NetRoll.Services.ImageStorageService Storage
+@inject Microsoft.Extensions.Localization.IStringLocalizer<NetRoll.Components.Pages.Catalog.Images> L
+@inject Microsoft.JSInterop.IJSRuntime JS
+@inject HttpClient HttpApi
+@inject NavigationManager Nav
+@using System.Text.Json
+
+<h3>@L["PageTitle"]</h3>
+
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="input-group mb-2">
+  <span class="input-group-text">@L["FilterLabel"]</span>
+  <input class="form-control" @bind-value="filter" @bind-value:event="oninput" placeholder="@L["FilterPlaceholder"]" />
+    </div>
+    <div class="d-flex gap-2 mb-2">
+    <input type="file" accept="image/*" multiple @ref="fileInput" class="form-control form-control-sm" />
+  <button class="btn btn-sm btn-success" disabled="@isUploading" @onclick="UploadSelected">@(isUploading ? L["Uploading"] : L["Upload"])</button>
+    </div>
+    <div class="images-scroll list-group small">
+      @if (items.Count == 0)
+      {
+  <div class="text-muted p-2">@L["NoImages"]</div>
+      }
+      else
+      {
+        foreach (var it in items.Where(Matches).OrderByDescending(i => i.UploadedAt))
+        {
+          var isSel = selected?.Id == it.Id;
+          <button type="button" class="list-group-item list-group-item-action text-start @(isSel ? "active" : null)" @onclick="() => SelectAsync(it)">
+            <div class="d-flex align-items-center gap-2">
+              <img src="/media/original/@it.FileName" class="rounded flex-shrink-0" style="width:42px;height:42px;object-fit:cover" />
+              <div class="text-truncate" style="max-width: 12rem" title="@it.OriginalFileName">@Trunc(it.OriginalFileName, 20)</div>
+            </div>
+          </button>
+        }
+      }
+    </div>
+  </div>
+  <div class="col-md-8">
+    @if (selected is null)
+    {
+  <div class="alert alert-info">@L["SelectFromList"]</div>
+    }
+    else
+    {
+      <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+        <div class="fw-semibold">@selected.OriginalFileName</div>
+        <div class="btn-group btn-group-sm flex-wrap" role="group">
+          @foreach (var ar in aspectRatios)
+          {
+            <button class="btn btn-outline-secondary" @onclick="(() => SetAspect(ar))">@ar</button>
+          }
+          <button class="btn btn-outline-secondary" @onclick='@(() => SetAspect("free"))'>@L["FreeAspect"]</button>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
+        @foreach (var ar in aspectRatios)
+        {
+            <button class="btn btn-primary btn-sm" disabled="@isSavingAll" @onclick='() => SaveCrop(ar)'>@L["SaveVariant"] @ar</button>
+        }
+  <button class="btn btn-outline-primary btn-sm" disabled="@isSavingAll" @onclick="SaveAllCrops">@L["SaveAll"] (@aspectRatios.Count)</button>
+  <button class="btn btn-outline-danger btn-sm ms-auto" disabled="@isSavingAll" @onclick="DeleteSelected">@L["Delete"]</button>
+      </div>
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        @foreach (var ar in aspectRatios)
+        {
+            var folder = ar.Replace(":", "x");
+            bool hasVariant = VariantExists(ar);
+            if (hasVariant)
+            {
+              <a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener" href="@($"/media/resized/{folder}/{selected.FileName}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds()}")">@L["OpenVariant"] @ar</a>
+            }
+            else
+            {
+              <span class="btn btn-outline-secondary btn-sm disabled" title="@L["NotSavedYet"]">@ar</span>
+            }
+        }
+      </div>
+    <div class="editor-wrap">
+  <img @key="selected.Id" id="editor-image" data-crop-key="@selected.FileName" src="/media/original/@selected.FileName" onerror="this.onerror=null;this.src='/media/original/@selected.FileName'" class="img-fluid border rounded" />
+      </div>
+      <div class="row g-2 mt-2">
+        @foreach (var ar in aspectRatios)
+        {
+            var cls = "ratio-" + ar.Replace(":", "x");
+            <div class="col-4"><div class="preview-box @cls" data-label="@ar" data-ratio="@ar"></div></div>
+        }
+      </div>
+      <div class="card mt-3">
+        <div class="card-body p-2">
+          <div class="row g-2 align-items-center">
+            <div class="col-sm-5">
+              <label class="form-label mb-0 small">@L["ImageTitle"]</label>
+              <input class="form-control form-control-sm" @bind-value="selected.Title" />
+            </div>
+            <div class="col-sm-5">
+              <label class="form-label mb-0 small">@L["AltText"]</label>
+              <input class="form-control form-control-sm" @bind-value="selected.AltText" />
+            </div>
+            <div class="col-sm-2 text-end">
+              <button class="btn btn-sm btn-outline-primary" @onclick="SaveMeta">@L["Save"]</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>
+
+@code {
+  private class ApiResponse { public bool ok { get; set; } public int status { get; set; } public string? text { get; set; } public string? url { get; set; } }
+  private class CropRect { public double x { get; set; } public double y { get; set; } public double width { get; set; } public double height { get; set; } }
+  private string? userId;
+  private List<NetRoll.Models.ImageAsset> items = new();
+  private NetRoll.Models.ImageAsset? selected;
+  private string filter = string.Empty;
+  private int _selectedIdSnapshot = 0;
+  private ElementReference fileInput;
+  private bool isUploading = false;
+  private List<string> aspectRatios = new() { "1:1", "4:3", "3:4" }; // Max 3 variáns
+  private HashSet<string> existingVariants = new();
+  private bool isSavingAll = false;
+  private string saveAllMode = "single"; // single | perAspect
+  // Egyszerű inicializáció: csak képváltáskor vagy ha nincs aktív cropper
+
+  // Nincs szükség LocationChanged figyelésre – aktív ellenőrzés JS-ben
+  
+  protected override async Task OnInitializedAsync()
+  {
+  userId = UserManager.GetUserId(Http.HttpContext!.User);
+    if (userId is null) return;
+  // Load dynamic aspect list if present
+  try
+  {
+    var setting = await Db.UserSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId && s.Key == "Image.Aspects");
+    if (setting != null && !string.IsNullOrWhiteSpace(setting.Value))
+    {
+      var parts = setting.Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Where(p => p.Contains(':'))
+        .Distinct()
+        .Take(3) // új maximum 3 variáns
+        .ToList();
+      if (parts.Count > 0) aspectRatios = parts;
+    }
+  // SaveAll mód betöltése
+  try
+  {
+    var modeSetting = await Db.UserSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId && s.Key == "Image.SaveAllMode");
+    if (modeSetting != null && (modeSetting.Value == "single" || modeSetting.Value == "perAspect")) saveAllMode = modeSetting.Value;
+  }
+  catch { }
+  }
+  catch {}
+    items = await Db.ImageAssets.Where(x => x.OwnerUserId == userId).ToListAsync();
+    // Előzetes variáns cache feltöltés az első kijelölt képre (ha van)
+    selected = items.FirstOrDefault();
+    if (selected != null)
+    {
+      await LoadExistingVariantsAsync();
+    }
+  }
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (selected is null) return;
+    bool needInit = firstRender || selected.Id != _selectedIdSnapshot;
+    if (!needInit)
+    {
+      try { needInit = !await JS.InvokeAsync<bool>("netrollCrop.active", "#editor-image"); } catch { needInit = true; }
+    }
+    if (needInit)
+    {
+      _selectedIdSnapshot = selected.Id;
+      try { await JS.InvokeVoidAsync("netrollCrop.init", "#editor-image"); } catch { }
+    }
+  }
+
+  public void Dispose() { }
+
+  private bool Matches(NetRoll.Models.ImageAsset it)
+  {
+    if (string.IsNullOrWhiteSpace(filter)) return true;
+    return (it.OriginalFileName?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (it.FileName?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (it.SourceType.ToString().Contains(filter, StringComparison.OrdinalIgnoreCase));
+  }
+
+  private async Task SelectAsync(NetRoll.Models.ImageAsset it)
+  {
+    selected = it;
+  existingVariants.Clear();
+  await LoadExistingVariantsAsync();
+    StateHasChanged();
+    try { await JS.InvokeVoidAsync("window.scrollTo", 0, 0); } catch { }
+  // Új kép kiválasztásakor a következő render után újrainicializálódik a cropper; az aspect 'free'
+  }
+  private async Task SetAspect(string ratio)
+  {
+    try { await JS.InvokeVoidAsync("netrollCrop.setAspect", ratio); } catch { }
+  }
+  private bool VariantExists(string aspect) => existingVariants.Contains(aspect);
+
+  private Task LoadExistingVariantsAsync()
+  {
+    if (selected is null || string.IsNullOrEmpty(userId)) return Task.CompletedTask;
+    try
+    {
+      var root = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot-protected", "media", userId, "resized");
+      if (!Directory.Exists(root)) return Task.CompletedTask;
+      foreach (var ar in aspectRatios)
+      {
+        var folder = ar.Replace(":", "x");
+        var filePath = Path.Combine(root, folder, selected.FileName);
+        if (System.IO.File.Exists(filePath)) existingVariants.Add(ar);
+      }
+    }
+    catch { }
+    return Task.CompletedTask;
+  }
+
+  private static string Trunc(string? s, int max)
+  {
+    s ??= string.Empty; if (s.Length <= max) return s; return s.Substring(0, Math.Max(0, max - 1)) + "…";
+  }
+
+  
+
+  private async Task UploadSelected()
+  {
+    if (userId is null) return;
+    try
+    {
+    isUploading = true; StateHasChanged();
+    var beforeCount = items?.Count ?? 0;
+    var res = await JS.InvokeAsync<object>("netrollUpload.post", fileInput, "/api/images/upload");
+  bool ok = false; int status = 0; string? txt = null;
+  try { ok = (bool)res.GetType().GetProperty("ok")?.GetValue(res)!; } catch { ok = false; }
+  try { status = (int)(res.GetType().GetProperty("status")?.GetValue(res) ?? 0); } catch { status = 0; }
+  try { txt = (string?)res.GetType().GetProperty("text")?.GetValue(res); } catch { txt = null; }
+      if (!ok)
+      {
+        var refreshed = await Db.ImageAssets.Where(x => x.OwnerUserId == userId).OrderByDescending(i => i.UploadedAt).ToListAsync();
+        var afterCount = refreshed.Count;
+        if (afterCount > beforeCount)
+        {
+          items = refreshed; selected = items.FirstOrDefault();
+          existingVariants.Clear();
+          await LoadExistingVariantsAsync();
+          try { await JS.InvokeVoidAsync("netrollFiles.clear", fileInput); } catch { }
+          try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["UploadDoneTitle"], body = (string)L["UploadDoneBody"], type = "success" }); } catch { }
+          StateHasChanged();
+          return;
+        }
+        else
+        {
+          try { await JS.InvokeVoidAsync("showToast", new { title = string.Format(L["UploadErrorTitle"], status), body = txt ?? (string)L["UnknownError"], type = "danger", delay = 5000 }); } catch { }
+          return;
+        }
+      }
+
+      // Success path
+      items = await Db.ImageAssets.Where(x => x.OwnerUserId == userId).OrderByDescending(i => i.UploadedAt).ToListAsync();
+      selected = items.FirstOrDefault();
+  existingVariants.Clear();
+  await LoadExistingVariantsAsync();
+      try { await JS.InvokeVoidAsync("netrollFiles.clear", fileInput); } catch { }
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["UploadSuccessTitle"], body = (string)L["UploadSuccessBody"], type = "success" }); } catch { }
+      StateHasChanged();
+    }
+  catch
+  {
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["GenericErrorTitle"], body = (string)L["UploadFailedBody"], type = "danger" }); } catch { }
+  }
+    finally { isUploading = false; StateHasChanged(); }
+  }
+
+  private async Task SaveCrop(string aspect)
+  {
+    if (selected is null || userId is null) return;
+    try
+    {
+      // Csak az aránykorlátot érvényesítjük, a pozíciót nem változtatjuk meg
+  if (aspectRatios.Contains(aspect))
+      {
+        try {
+          // Csak akkor állítjuk, ha tényleg más az arány (>1%)
+          await JS.InvokeVoidAsync("netrollCrop.ensureAspect", aspect);
+          await JS.InvokeVoidAsync("netrollCrop.waitUpdate");
+        } catch {}
+      }
+  // Biztosítsuk, hogy a cropper belső állapota frissült az aspect illesztés után
+  try { await JS.InvokeVoidAsync("netrollCrop.waitUpdate"); } catch {}
+  var rect = await JS.InvokeAsync<CropRect>("netrollCrop.getRect", aspect);
+      if (rect is null)
+      {
+  try { rect = await JS.InvokeAsync<CropRect>("netrollCrop.getRect", aspect); } catch { rect = null; }
+      }
+      if (rect is null)
+      {
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["SaveErrorTitle"], body = (string)L["CropAreaNotSet"], type = "danger", delay = 4000 }); } catch { }
+        return;
+      }
+  try { await JS.InvokeVoidAsync("console.log", new object?[]{"[SaveCrop rect]", aspect, rect}); } catch { }
+      double x = rect.x, y = rect.y, w = rect.width, h = rect.height;
+      if (w <= 0 || h <= 0)
+      {
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["SaveErrorTitle"], body = (string)L["CropAreaEmpty"], type = "danger", delay = 4000 }); } catch { }
+        return;
+      }
+      var payload = new { fileName = selected.FileName, aspect = aspect, x, y, width = w, height = h };
+  var apiRes = await JS.InvokeAsync<ApiResponse>("netrollApi.post", "/api/images/save-crop", payload);
+  bool ok = apiRes?.ok == true; int status = apiRes?.status ?? 0; string? txt = apiRes?.text;
+      if (ok)
+      {
+        // Parse JSON body for width/height (apiRes.text now contains body even on success)
+        string toastBody = aspect;
+        try
+        {
+          if (!string.IsNullOrWhiteSpace(apiRes?.text))
+          {
+            using var doc = JsonDocument.Parse(apiRes.text);
+            if (doc.RootElement.TryGetProperty("width", out var wEl) && doc.RootElement.TryGetProperty("height", out var hEl))
+            {
+              toastBody = $"{aspect} → {wEl.GetInt32()}x{hEl.GetInt32()}";
+            }
+          }
+        }
+        catch { }
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["CropSavedTitle"], body = toastBody, type = "success" }); } catch { }
+        existingVariants.Add(aspect);
+        StateHasChanged();
+        // Ne állítsuk vissza a crop pozíciót; a felhasználó folytathassa a szerkesztést ugyanonnan
+      }
+      else
+      {
+  var msg = string.IsNullOrWhiteSpace(txt) ? string.Format((string)L["SaveErrorGeneric"], status) : txt;
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["SaveErrorTitle"], body = msg, type = "danger", delay=5000 }); } catch { }
+      }
+    }
+    catch (Exception ex)
+    {
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["SaveErrorTitle"], body = ex.Message, type = "danger" }); } catch { }
+    }
+  }
+
+  private async Task SaveAllCrops()
+  {
+    if (selected is null || userId is null || aspectRatios.Count == 0) return;
+    if (isSavingAll) return;
+    isSavingAll = true; StateHasChanged();
+    try
+    {
+      int success = 0; int total = aspectRatios.Count;
+      if (saveAllMode == "single")
+      {
+        // Egyetlen aktuális rect – minden arányhoz ugyanaz (padding lehetséges)
+        CropRect? rect = null;
+  try { rect = await JS.InvokeAsync<CropRect>("netrollCrop.getRect", aspectRatios[0]); } catch { rect = null; }
+        if (rect is null || rect.width <= 0 || rect.height <= 0)
+        {
+          try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["SaveErrorTitle"], body = (string)L["CropAreaEmpty"], type = "danger" }); } catch { }
+          return;
+        }
+        foreach (var ar in aspectRatios)
+        {
+          try
+          {
+            var payload = new { fileName = selected.FileName, aspect = ar, x = rect.x, y = rect.y, width = rect.width, height = rect.height };
+            var apiRes = await JS.InvokeAsync<ApiResponse>("netrollApi.post", "/api/images/save-crop", payload);
+            if (apiRes?.ok == true) { success++; existingVariants.Add(ar); }
+          }
+          catch { }
+        }
+      }
+      else // perAspect
+      {
+        foreach (var ar in aspectRatios)
+        {
+          try
+          {
+            // Átállítjuk az aspectet, várunk rá, majd külön rect-et kérünk
+            try { await JS.InvokeVoidAsync("netrollCrop.ensureAspect", ar); } catch { }
+            try { await JS.InvokeVoidAsync("netrollCrop.waitUpdate"); } catch { }
+            CropRect? rect = null;
+            try { rect = await JS.InvokeAsync<CropRect>("netrollCrop.getRect", ar); } catch { rect = null; }
+            if (rect is null || rect.width <= 0 || rect.height <= 0) continue;
+            var payload = new { fileName = selected.FileName, aspect = ar, x = rect.x, y = rect.y, width = rect.width, height = rect.height };
+            var apiRes = await JS.InvokeAsync<ApiResponse>("netrollApi.post", "/api/images/save-crop", payload);
+            if (apiRes?.ok == true) { success++; existingVariants.Add(ar); }
+          }
+          catch { }
+        }
+      }
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["AllSavedTitle"], body = string.Format((string)L["AllSavedBody"], success, total), type = (success==total?"success":"warning"), delay = 4000 }); } catch { }
+      StateHasChanged();
+    }
+    finally { isSavingAll = false; StateHasChanged(); }
+  }
+
+  private async Task SaveMeta()
+  {
+    if (selected is null) return;
+    try
+    {
+  var apiRes = await JS.InvokeAsync<ApiResponse>("netrollApi.post", "/api/images/update-meta", new { id = selected.Id, title = selected.Title, altText = selected.AltText });
+  bool ok = apiRes?.ok == true; int status = apiRes?.status ?? 0; string? txt = apiRes?.text;
+      if (ok)
+      {
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["SavedTitle"], body = (string)L["MetaUpdatedBody"], type = "success" }); } catch { }
+      }
+      else
+      {
+  var msg = txt ?? string.Format((string)L["GenericErrorWithStatus"], status);
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["GenericErrorTitle"], body = msg, type = "danger", delay=5000 }); } catch { }
+      }
+    }
+    catch (Exception ex)
+    {
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["GenericErrorTitle"], body = ex.Message, type = "danger" }); } catch { }
+    }
+  }
+
+  private async Task DeleteSelected()
+  {
+    if (selected is null || userId is null) return;
+    try
+    {
+  var ok = await JS.InvokeAsync<bool>("confirmModal", string.Format((string)L["ConfirmDelete"], selected.OriginalFileName));
+      if (!ok) return;
+      var url = Nav.ToAbsoluteUri($"/api/images/delete/{selected.Id}");
+      var resp = await HttpApi.DeleteAsync(url);
+      if (resp.IsSuccessStatusCode)
+      {
+        // Refresh list and clear selection
+        items = await Db.ImageAssets.Where(x => x.OwnerUserId == userId).OrderByDescending(i => i.UploadedAt).ToListAsync();
+        selected = items.FirstOrDefault();
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["DeletedTitle"], body = (string)L["DeleteSuccessBody"], type = "success" }); } catch { }
+        StateHasChanged();
+      }
+      else
+      {
+        var msg = await resp.Content.ReadAsStringAsync();
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["DeleteErrorTitle"], body = msg, type = "danger" }); } catch { }
+      }
+    }
+    catch (Exception ex)
+    {
+  try { await JS.InvokeVoidAsync("showToast", new { title = (string)L["DeleteErrorTitle"], body = ex.Message, type = "danger" }); } catch { }
+    }
+  }
+}
+
+<style>
+.images-scroll { height: calc(100vh - 160px); overflow-y: auto; }
+/* A fő szerkesztő ne tolja ki a preview-t, maradjon kezelhető méretben */
+.editor-wrap { max-height: 48vh; overflow: hidden; }
+.editor-wrap img { max-height: 48vh; width: auto; }
+/* Fix méretű preview dobozok, ne növekedjenek zoomnál sem */
+.preview-box { position: relative; width: 260px; height: 195px; border: 1px dashed #ccc; border-radius: .25rem; padding:0; background:#fafafa; overflow: hidden; }
+.preview-box::after { content: attr(data-label); position: absolute; bottom:4px; left:6px; font-size: .8rem; color:#666; background: rgba(255,255,255,.7); padding:0 .25rem; border-radius:2px; }
+.ratio-1x1 { width: 160px; height: 160px; }
+.ratio-4x3 { width: 200px; height: 150px; }
+.ratio-3x4 { width: 150px; height: 200px; }
+.ratio-16x9 { width: 240px; height: 135px; }
+</style>
+<style>
+/* A preview dobozok háttérképei torzítás nélkül skálázódjanak */
+.preview-box { background-color:#fafafa; background-repeat:no-repeat; background-position:center center; }
+</style>

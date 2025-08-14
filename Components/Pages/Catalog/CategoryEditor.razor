@@ -1,0 +1,700 @@
+@page "/catalog/categories/edit/{TreeId:int?}"
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Web
+@using NetRoll.Data
+@using NetRoll.Models
+@using System.Threading
+@attribute [Authorize]
+@inject ApplicationDbContext Db
+@inject Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> UserManager
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+@inject NavigationManager Nav
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+@code {
+    [Parameter] public int? TreeId { get; set; }
+    private string? userId;
+    private List<CategoryTree> trees = new();
+    private CategoryTree? currentTree;
+    private List<Language> langs = new();
+    private List<Category> flat = new();
+    private int? selectedTreeId;
+    // Hozzáadás modal állapot
+    private int? addParentId;
+    private string? addParentIdStr;
+    private string? addParentName;
+    private bool showAddModal;
+    private Dictionary<string, TranslationVm> addTrans = new();
+    private class TranslationVm { public string Name { get; set; } = string.Empty; public string? Desc { get; set; } }
+    private Dictionary<string, TranslationVm> trans = new();
+    private Category? editing;
+    private bool showEditModal;
+    private string? editParentIdStr;
+    // Rendezések sorosításához (DbContext párhuzamos használat elkerülése)
+    private readonly SemaphoreSlim _reorderLock = new(1,1);
+    // Globális visszavonás támogatásához az utolsó törölt elem ideig tárolva
+    private Category? _lastDeleted;
+    private int? _lastDeletedIndex;
+
+    protected override async Task OnInitializedAsync()
+    {
+        userId = UserManager.GetUserId(Http.HttpContext!.User);
+        // betöltjük az összecsukott id-kat localStorage-ból
+        try
+        {
+            var s = await JS.InvokeAsync<string?>("netrollStore.get", "cats:collapsed");
+            if (!string.IsNullOrWhiteSpace(s))
+            {
+                foreach (var part in s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (int.TryParse(part, out var id)) collapsed.Add(id);
+                }
+            }
+        }
+        catch { }
+        await LoadAsync();
+    }
+
+    private DotNetObjectReference<CategoryEditor>? dotNetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Mindig próbáljuk (re)inicializálni a Sortable-t, mert az első renderkor még nincs fa
+        try { await JS.InvokeVoidAsync("netrollDrag.init", ".category-tree"); } catch { }
+        // Frissítsük a .NET ref-et a JS oldalon, hogy váltás után is működjön
+        try {
+            dotNetRef ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("netrollDrag.bindReorder", dotNetRef);
+        } catch { /* noop */ }
+    }
+
+    [JSInvokable]
+    public async Task OnCatsReorder(string parentIdStr, string[] ids)
+    {
+    if (currentTree is null || ids is null || ids.Length == 0) return;
+        // parse parentId from string (empty => null)
+        int? parentId = string.IsNullOrWhiteSpace(parentIdStr) ? null : int.TryParse(parentIdStr, out var p) ? p : null;
+        var idList = new List<int>();
+        foreach (var s in ids)
+        {
+            if (int.TryParse(s, out var id)) idList.Add(id);
+        }
+        if (idList.Count == 0) return;
+
+        // Load affected categories (current tree only)
+        var affected = await Db.Categories.Where(c => c.CategoryTreeId == currentTree.Id && idList.Contains(c.Id)).ToListAsync();
+        // Source parents to renumber later if cross-parent move happened
+        var prevParents = affected.Select(a => a.ParentCategoryId).Distinct().Where(pp => pp != parentId).ToList();
+        // Map for quick access
+        var dict = affected.ToDictionary(c => c.Id);
+    // A kliens az adott lista közvetlen gyerekeinek sorrendjét küldi – ezt egy az egyben alkalmazzuk
+    var onlySiblings = idList;
+        for (int i = 0; i < onlySiblings.Count; i++)
+        {
+            var id = onlySiblings[i];
+            if (!dict.TryGetValue(id, out var cat)) continue;
+            if (cat.ParentCategoryId != parentId) cat.ParentCategoryId = parentId;
+            cat.DisplayOrder = i + 1;
+        }
+        // Renumber siblings in previous parents (if any were moved out)
+        foreach (var pp in prevParents)
+        {
+            var sibs = await Db.Categories.Where(c => c.CategoryTreeId == currentTree.Id && c.ParentCategoryId == pp)
+                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Id).ToListAsync();
+            for (int i = 0; i < sibs.Count; i++) sibs[i].DisplayOrder = i + 1;
+        }
+    await Db.SaveChangesAsync();
+    // Töröljük a trackelt entitásokat, hogy az újratöltés tényleg friss adatot hozzon
+    try { Db.ChangeTracker.Clear(); } catch { }
+    // Egyszerű és megbízható: töltsük újra az aktuális fa adatait, így a felület mindig a mentett állapotot tükrözi
+    await LoadAsync();
+    StateHasChanged();
+    try { await JS.InvokeVoidAsync("netrollDrag.afterReorder"); } catch { }
+    }
+
+    // M4-stílusú egyszerűsített esemény: egy elem mozgatása új szülő alá adott indexre
+    [JSInvokable]
+    public async Task OnCatsDrop(int movedItemId, int? newParentId, int newIndex)
+    {
+        if (currentTree is null) return;
+        await _reorderLock.WaitAsync();
+        try
+        {
+            var items = await Db.Categories.Where(c => c.CategoryTreeId == currentTree.Id).ToListAsync();
+            var moved = items.FirstOrDefault(c => c.Id == movedItemId);
+            if (moved is null) return;
+
+            var oldParentId = moved.ParentCategoryId;
+            // Régi testvérek sorszámozása (moved nélkül)
+            var oldSiblings = items.Where(c => c.ParentCategoryId == oldParentId && c.Id != movedItemId)
+                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Id).ToList();
+            for (int i = 0; i < oldSiblings.Count; i++) oldSiblings[i].DisplayOrder = i + 1;
+
+            // Új szülő gyerekei (moved nélkül)
+            var newSiblings = items.Where(c => c.ParentCategoryId == newParentId && c.Id != movedItemId)
+                .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Id).ToList();
+            moved.ParentCategoryId = newParentId;
+            var insertAt = Math.Max(0, Math.Min(newIndex, newSiblings.Count));
+            newSiblings.Insert(insertAt, moved);
+            for (int i = 0; i < newSiblings.Count; i++) newSiblings[i].DisplayOrder = i + 1;
+
+            await Db.SaveChangesAsync();
+            try { Db.ChangeTracker.Clear(); } catch { }
+            await LoadAsync();
+            StateHasChanged();
+        }
+        finally
+        {
+            _reorderLock.Release();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        dotNetRef?.Dispose();
+        await Task.CompletedTask;
+    }
+
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrEmpty(userId)) return;
+        trees = await Db.CategoryTrees.Where(t => t.OwnerUserId == userId)
+            .OrderBy(t => t.Name).ToListAsync();
+
+    if (TreeId.HasValue)
+        {
+            currentTree = await Db.CategoryTrees.FirstOrDefaultAsync(t => t.Id == TreeId.Value && t.OwnerUserId == userId);
+        }
+        currentTree ??= trees.FirstOrDefault();
+    selectedTreeId = currentTree?.Id;
+
+        // Nyelvek (biztosítsuk a 'hu'-t)
+        if (!await Db.Languages.AnyAsync(x => x.OwnerUserId == userId && x.Code == "hu"))
+        {
+            Db.Languages.Add(new Language { Code = "hu", DisplayName = "Magyar", OwnerUserId = userId });
+            await Db.SaveChangesAsync();
+        }
+        langs = await Db.Languages.Where(x => x.OwnerUserId == userId).OrderBy(x => x.DisplayName).ToListAsync();
+
+        if (currentTree is not null)
+        {
+            flat = await Db.Categories
+                .AsNoTracking()
+                .Where(c => c.CategoryTreeId == currentTree.Id)
+                .OrderBy(c => c.ParentCategoryId)
+                .ThenBy(c => c.DisplayOrder)
+                .ThenBy(c => c.Name)
+                .ToListAsync();
+        }
+    }
+
+    private IEnumerable<Category> ChildrenOf(int? pid) => flat.Where(c => c.ParentCategoryId == pid);
+    // Összecsukható ágak: collapsed id-k tárolása (localStorage-ban is)
+    private HashSet<int> collapsed = new();
+    private bool IsCollapsed(int id) => collapsed.Contains(id);
+    private async Task ToggleCollapse(int id)
+    {
+        if (!collapsed.Add(id)) collapsed.Remove(id);
+        StateHasChanged();
+        try { await JS.InvokeVoidAsync("netrollStore.set", "cats:collapsed", string.Join(",", collapsed)); } catch { }
+    }
+    private async Task ExpandAll()
+    {
+        collapsed.Clear();
+        StateHasChanged();
+        try { await JS.InvokeVoidAsync("netrollStore.set", "cats:collapsed", ""); } catch { }
+    }
+    private async Task CollapseAll()
+    {
+        collapsed = new HashSet<int>(flat.Where(c => ChildrenOf(c.Id).Any()).Select(c => c.Id));
+        StateHasChanged();
+        try { await JS.InvokeVoidAsync("netrollStore.set", "cats:collapsed", string.Join(",", collapsed)); } catch { }
+    }
+
+    private void ShowAddModal(int? pid)
+    {
+        addParentId = pid;
+        addParentName = pid is null ? "gyökér" : flat.FirstOrDefault(x => x.Id == pid)?.Name;
+        addTrans = new();
+        foreach (var lang in langs)
+        {
+            addTrans[lang.Code] = new TranslationVm { Name = string.Empty, Desc = string.Empty };
+        }
+        addParentIdStr = addParentId?.ToString() ?? string.Empty;
+        showAddModal = true;
+    }
+
+    private async Task SaveAddAsync()
+    {
+        if (currentTree is null) return;
+        var baseName = (addTrans.TryGetValue("hu", out var hu) ? hu.Name : string.Empty)?.Trim();
+        if (string.IsNullOrEmpty(baseName)) return;
+    // Konvertáljuk a kiválasztott szülőt stringből int?-re
+    addParentId = int.TryParse(addParentIdStr, out var parId) ? parId : (int?)null;
+    var maxOrder = flat.Where(c => c.ParentCategoryId == addParentId).Select(c => c.DisplayOrder).DefaultIfEmpty(0).Max();
+        var cat = new Category
+        {
+            Name = baseName,
+            CategoryTreeId = currentTree.Id,
+            ParentCategoryId = addParentId,
+            DisplayOrder = maxOrder + 1,
+            IsActive = true
+        };
+        Db.Categories.Add(cat);
+        await Db.SaveChangesAsync();
+        // Mentés fordítások
+        foreach (var kv in addTrans)
+        {
+            var nm = (kv.Value.Name ?? string.Empty).Trim();
+            var ds = string.IsNullOrWhiteSpace(kv.Value.Desc) ? null : kv.Value.Desc;
+            if (string.IsNullOrEmpty(nm)) continue; // üres fordításokat kihagyjuk
+            Db.CategoryTranslations.Add(new CategoryTranslation
+            {
+                CategoryId = cat.Id,
+                LanguageCode = kv.Key,
+                Name = nm,
+                Description = ds
+            });
+        }
+        await Db.SaveChangesAsync();
+        showAddModal = false;
+        addParentId = null; addParentIdStr = null; addParentName = null; addTrans.Clear();
+        await LoadAsync();
+    }
+
+    private void CancelAdd() { showAddModal = false; addParentId = null; addParentIdStr = null; addParentName = null; addTrans.Clear(); }
+
+    private CancellationTokenSource? _undoCts;
+    private async Task DeleteAsync(Category c)
+    {
+        // Ha vannak gyerekei, ne töröljük
+        if (flat.Any(x => x.ParentCategoryId == c.Id)) return;
+        // Puha törlés UX: azonnal eltüntetjük a listából, de adunk 5 mp visszavonási lehetőséget
+        var backup = c; // referenciát őrizzük meg – úgyis újratöltünk végül
+        var removedId = c.Id;
+        // jegyezzük meg az eredeti pozíciót a globális visszavonáshoz
+        _lastDeleted = backup;
+        _lastDeletedIndex = flat.FindIndex(x => x.Id == removedId);
+        flat.RemoveAll(x => x.Id == removedId);
+        StateHasChanged();
+
+        try {
+            // győződjünk meg róla, hogy a .NET ref kötve van, mielőtt a toast Undo gombja hívná
+            dotNetRef ??= DotNetObjectReference.Create(this);
+            // A toast Undo gombja a komponens UndoDelete metódusát hívja
+            await JS.InvokeVoidAsync("netrollDrag.bindReorder", dotNetRef);
+            await JS.InvokeVoidAsync("showToast", new { title = "Törölve", body = "Kategória törölve. Visszavonás 5 mp-ig.", type = "warning", undoLabel = "Visszavonás", undoMethod = "UndoDelete", delay = 6000 });
+        } catch { }
+
+        _undoCts?.Cancel();
+        _undoCts = new CancellationTokenSource();
+        var token = _undoCts.Token;
+
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5), token);
+            // Ha nem lett visszavonva 5 mp-en belül, végrehajtjuk a valódi törlést
+            var entity = await Db.Categories.FirstOrDefaultAsync(x => x.Id == removedId);
+            if (entity != null)
+            {
+                Db.Categories.Remove(entity);
+                await Db.SaveChangesAsync();
+            }
+            try { Db.ChangeTracker.Clear(); } catch { }
+            await LoadAsync();
+            StateHasChanged();
+            // véglegesült a törlés → nincs többé mit visszavonni
+            _lastDeleted = null; _lastDeletedIndex = null; _undoCts = null;
+        }
+        catch (TaskCanceledException)
+        {
+            // Visszavonva → visszaállítjuk a listába (DB‑hez nem nyúltunk)
+            flat.Add(backup);
+            flat = flat.OrderBy(x => x.ParentCategoryId).ThenBy(x => x.DisplayOrder).ThenBy(x => x.Id).ToList();
+            StateHasChanged();
+            try { await JS.InvokeVoidAsync("showToast", new { title = "Visszavonva", body = "A törlés visszavonva.", type = "success" }); } catch { }
+            _lastDeleted = null; _lastDeletedIndex = null; _undoCts = null;
+        }
+    }
+
+    // Kívülről hívható visszavonás (ha később külön gombot szeretnénk)
+    [JSInvokable]
+    public void UndoDelete()
+    {
+        _undoCts?.Cancel();
+    }
+
+    private async Task MoveAsync(Category c, int delta)
+    {
+        var siblings = flat.Where(x => x.ParentCategoryId == c.ParentCategoryId).OrderBy(x => x.DisplayOrder).ThenBy(x => x.Id).ToList();
+        var idx = siblings.FindIndex(x => x.Id == c.Id);
+        var newIdx = idx + delta;
+        if (newIdx < 0 || newIdx >= siblings.Count) return;
+        (siblings[idx].DisplayOrder, siblings[newIdx].DisplayOrder) = (siblings[newIdx].DisplayOrder, siblings[idx].DisplayOrder);
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private async Task BeginEditAsync(Category c)
+    {
+        editing = await Db.Categories.FirstAsync(x => x.Id == c.Id);
+        // init fordítások
+        trans = new();
+        var existing = await Db.CategoryTranslations.Where(t => t.CategoryId == c.Id).ToListAsync();
+        foreach (var lang in langs)
+        {
+            var t = existing.FirstOrDefault(e => e.LanguageCode == lang.Code);
+            trans[lang.Code] = new TranslationVm { Name = t?.Name ?? c.Name, Desc = t?.Description };
+        }
+        editParentIdStr = editing.ParentCategoryId?.ToString() ?? string.Empty;
+        showEditModal = true;
+    }
+
+    private void CancelEdit() { showEditModal = false; editing = null; trans.Clear(); }
+
+    private async Task SaveEditAsync()
+    {
+        if (editing is null) return;
+        // Szülő módosítása (ha változott)
+        var newParentId = int.TryParse(editParentIdStr, out var pid) ? pid : (int?)null;
+        var oldParentId = editing.ParentCategoryId;
+        if (oldParentId != newParentId)
+        {
+            // Új szülő alatti max sorrend +1
+            var newSibs = await Db.Categories.Where(x => x.CategoryTreeId == currentTree!.Id && x.ParentCategoryId == newParentId && x.Id != editing.Id)
+                .OrderBy(x => x.DisplayOrder).ThenBy(x => x.Id).ToListAsync();
+            editing.ParentCategoryId = newParentId;
+            editing.DisplayOrder = (newSibs.Select(s => s.DisplayOrder).DefaultIfEmpty(0).Max()) + 1;
+            // Régi szülő gyerekeinek újrasorszámozása
+            var oldSibs = await Db.Categories.Where(x => x.CategoryTreeId == currentTree!.Id && x.ParentCategoryId == oldParentId && x.Id != editing.Id)
+                .OrderBy(x => x.DisplayOrder).ThenBy(x => x.Id).ToListAsync();
+            for (int i = 0; i < oldSibs.Count; i++) oldSibs[i].DisplayOrder = i + 1;
+        }
+        await Db.SaveChangesAsync();
+        // mentés fordítások
+        var existing = await Db.CategoryTranslations.Where(t => t.CategoryId == editing.Id).ToListAsync();
+        foreach (var lang in langs)
+        {
+            var key = lang.Code;
+            var vm = trans[key];
+            var ent = existing.FirstOrDefault(e => e.LanguageCode == key);
+            if (ent is null)
+            {
+                ent = new CategoryTranslation { CategoryId = editing.Id, LanguageCode = key, Name = vm.Name, Description = vm.Desc };
+                Db.CategoryTranslations.Add(ent);
+            }
+            else
+            {
+                ent.Name = vm.Name; ent.Description = vm.Desc;
+            }
+        }
+        await Db.SaveChangesAsync();
+        showEditModal = false; editing = null; trans.Clear();
+        await LoadAsync();
+    }
+    private bool IsDescendantOf(int nodeId, int possibleAncestorId)
+    {
+        if (nodeId == possibleAncestorId) return true;
+        var current = flat.FirstOrDefault(x => x.Id == nodeId)?.ParentCategoryId;
+        while (current is not null)
+        {
+            if (current == possibleAncestorId) return true;
+            current = flat.FirstOrDefault(x => x.Id == current)?.ParentCategoryId;
+        }
+        return false;
+    }
+}
+
+<PageTitle>Kategória szerkesztő</PageTitle>
+
+<h3>Kategória szerkesztő</h3>
+
+@if (trees.Count == 0)
+{
+    <div class="alert alert-info">Még nincs kategóriafa. Először hozz létre egyet a Kategóriák oldalon.</div>
+}
+else
+{
+    <div class="mb-3">
+        <label class="form-label">Válassz kategóriafát</label>
+        <select class="form-select" @bind="selectedTreeId" @bind:after="OnTreeChanged">
+            @foreach (var t in trees)
+            {
+                <option value="@t.Id">@t.Name</option>
+            }
+        </select>
+    </div>
+
+    @if (currentTree is null)
+    {
+        <div class="alert alert-warning">Nincs jogosultság ehhez a fához.</div>
+    }
+    else
+    {
+        <div class="row g-3">
+            <div class="col-md-12 col-lg-6 col-xl-5">
+                <div class="d-flex align-items-center justify-content-between">
+                    <h5 class="mb-0">@currentTree.Name</h5>
+                    <button class="btn btn-outline-secondary btn-sm" disabled="@(_lastDeleted is null)" @onclick="GlobalUndo">
+                        Utolsó törlés visszavonása
+                    </button>
+                </div>
+                @if (true)
+                {
+                    <div class="d-flex gap-2 mb-2 flex-wrap">
+                        <button class="btn btn-sm btn-primary" @onclick="() => ShowAddModal(null)"><span class="oi oi-plus"></span> Főkategória hozzáadása</button>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button class="btn btn-outline-secondary" @onclick="ExpandAll">Összes kinyitása</button>
+                            <button class="btn btn-outline-secondary" @onclick="CollapseAll">Összes becsukása</button>
+                        </div>
+                    </div>
+                }
+
+                @if (flat.Count == 0)
+                {
+                    <div class="text-muted">Nincs kategória.</div>
+                }
+                else
+                {
+                    <div class="category-tree">
+                        <ul class="ctree sortable list-group category-list-group" data-parent-id="">
+                            @RenderTreeRazor(null, 0)
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@* Új kategória modal *@
+@if (showAddModal)
+{
+    <div class="modal fade show" style="display:block" tabindex="-1" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Új @(addParentId is null ? "gyökér" : "al")kategória @if(!string.IsNullOrEmpty(addParentName)){<text>ehhez: @addParentName</text>}</h5>
+                    <button type="button" class="btn-close" @onclick="CancelAdd"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#add-tab-trans" type="button" role="tab">Fordítások</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#add-tab-settings" type="button" role="tab">Beállítások</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content pt-3">
+                        <div class="tab-pane fade show active" id="add-tab-trans" role="tabpanel">
+                            @foreach (var lang in langs)
+                            {
+                                <div class="mb-3">
+                                    <label class="form-label">Kategória neve (@lang.DisplayName)</label>
+                                    <input class="form-control" placeholder="@(lang.Code == "hu" ? "Kötelező" : "Opcionális")" @bind="addTrans[lang.Code].Name" />
+                                </div>
+                            }
+                        </div>
+                        <div class="tab-pane fade" id="add-tab-settings" role="tabpanel">
+                            <div class="mb-3">
+                                <label class="form-label">Szülő kategória</label>
+                                <select class="form-select" @bind="addParentIdStr">
+                                    <option value="">(Gyökérkategória)</option>
+                                    @foreach (var opt in flat.OrderBy(x => x.ParentCategoryId).ThenBy(x => x.DisplayOrder).ThenBy(x => x.Name))
+                                    {
+                                        <option value="@opt.Id">@GetIndentedName(opt)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label">Ikon</label>
+                                    <input class="form-control" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Kép URL</label>
+                                    <input class="form-control" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelAdd">Mégse</button>
+                    <button class="btn btn-success" @onclick="SaveAddAsync">Mentés</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@* Kategória szerkesztés modal *@
+@if (showEditModal && editing is not null)
+{
+    <div class="modal fade show" style="display:block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Kategória szerkesztése: @editing.Name</h5>
+                    <button type="button" class="btn-close" @onclick="CancelEdit"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-8">
+                            <label class="form-label">Alap név</label>
+                            <input class="form-control" @bind="editing.Name" />
+                        </div>
+                        <div class="col-2">
+                            <label class="form-label">Aktív</label>
+                            <input type="checkbox" class="form-check-input ms-2" @bind="editing.IsActive" />
+                        </div>
+                        <div class="col-2">
+                            <label class="form-label">Sorrend</label>
+                            <input type="number" class="form-control" @bind="editing.DisplayOrder" />
+                        </div>
+                    </div>
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#edit-tab-trans" type="button" role="tab">Fordítások</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#edit-tab-settings" type="button" role="tab">Beállítások</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content pt-3">
+                        <div class="tab-pane fade show active" id="edit-tab-trans" role="tabpanel">
+                            @foreach (var lang in langs)
+                            {
+                                <div class="mb-3">
+                                    <div class="fw-bold">@lang.DisplayName (@lang.Code)</div>
+                                    <input class="form-control mb-1" placeholder="Név" @bind="trans[lang.Code].Name" />
+                                    <textarea class="form-control" placeholder="Leírás" @bind="trans[lang.Code].Desc"></textarea>
+                                </div>
+                            }
+                        </div>
+                        <div class="tab-pane fade" id="edit-tab-settings" role="tabpanel">
+                            <div class="mb-3">
+                                <label class="form-label">Szülő kategória</label>
+                                <select class="form-select" @bind="editParentIdStr">
+                                    <option value="">(Gyökérkategória)</option>
+                                    @foreach (var opt in flat.OrderBy(x => x.ParentCategoryId).ThenBy(x => x.DisplayOrder).ThenBy(x => x.Name))
+                                    {
+                                        var disabled = (opt.Id == editing.Id) || IsDescendantOf(opt.Id, editing.Id);
+                                        <option value="@opt.Id" disabled="@(disabled ? "disabled" : null)">@GetIndentedName(opt)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label">Ikon</label>
+                                    <input class="form-control" @bind="editing.Icon" />
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Kép URL</label>
+                                    <input class="form-control" @bind="editing.ImageUrl" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelEdit">Mégse</button>
+                    <button class="btn btn-success" @onclick="SaveEditAsync">Mentés</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+<style>
+    .category-tree { max-width: 100%; }
+    .ctree { list-style: none; padding-left: 0; margin: 0; }
+    .ctree > li { margin-bottom: .25rem; }
+    .node { padding: .375rem .5rem; border: 1px solid #e5e5e5; border-radius: .375rem; background: #fff; user-select: none; }
+    .children { list-style: none; padding-left: 1.25rem; margin-top: .25rem; }
+    .children.collapsed { display: none; }
+    .name { display: inline-block; }
+    .handle { width: 1.25rem; text-align: center; cursor: grab; }
+    .caret { width: 1.25rem; cursor: pointer; user-select: none; display:inline-flex; align-items:center; justify-content:center; }
+    .caret::before { content: "›"; display:inline-block; transform: rotate(90deg); transition: transform .15s ease; }
+    .caret.collapsed::before { transform: rotate(0deg); }
+    .sortable-chosen .node, .drag-chosen .node { outline: 2px solid #0d6efd33; background: #f8fbff; }
+    .dragging .node { opacity: .85; }
+    .btn-group .btn { line-height: 1; }
+    .drag-over > .node { outline: 2px dashed #66afe9; }
+    .drag-ghost { opacity: .6; }
+    .drop-target { outline: 2px dashed #0d6efd; outline-offset: 2px; }
+    body.dragging .node { cursor: grabbing; }
+    /* M4-szerű keretezés és hover */
+    .list-group.category-list-group > .list-group-item { border: 1px solid #e5e5e5; border-radius: .375rem; margin-bottom: .25rem; }
+    .list-group.category-list-group > .list-group-item:hover { background-color: #f8f9fa; }
+</style>
+
+@code {
+    private void OnTreeChanged()
+    {
+        var id = selectedTreeId ?? 0;
+        Nav.NavigateTo($"/catalog/categories/edit/{id}");
+    }
+    private async Task GlobalUndo()
+    {
+        if (_lastDeleted is null) return;
+        // Csak megszakítjuk a késleltetést; a visszaállítást a DeleteAsync catch ága intézi
+        _undoCts?.Cancel();
+        await Task.Yield();
+    }
+    RenderFragment RenderTreeRazor(int? pid, int level) => @<text>
+    @foreach (var c in ChildrenOf(pid).OrderBy(x => x.DisplayOrder).ThenBy(x => x.Id))
+    {
+                <li @key="c.Id" data-id="@c.Id" class="list-group-item">
+                    <div class="node d-flex align-items-center">
+                        @if (ChildrenOf(c.Id).Any())
+                        {
+                            var coll = IsCollapsed(c.Id);
+                            <span class="caret @(coll ? "collapsed" : null) me-1" title="Lenyitás/összecsukás" @onclick="() => ToggleCollapse(c.Id)"></span>
+                        }
+                        else
+                        {
+                            <span class="me-1" style="width:1.25rem"></span>
+                        }
+                        <span class="drag-handle handle me-2 text-secondary user-select-none">⋮⋮</span>
+                    <span class="name level-@level">@c.Name</span>
+                    <div class="ms-auto btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" @onclick="() => ShowAddModal(c.Id)">+</button>
+                        <button class="btn btn-outline-secondary" @onclick="() => BeginEditAsync(c)">✎</button>
+                        <button class="btn btn-outline-danger" @onclick="() => DeleteAsync(c)">🗑</button>
+                    </div>
+                </div>
+                @if (ChildrenOf(c.Id).Any())
+                {
+                    var coll = IsCollapsed(c.Id);
+                    <ul class="children sortable list-group category-list-group mt-2 @(coll ? "collapsed" : null)" data-parent-id="@c.Id">
+                        @RenderTreeRazor(c.Id, level + 1)
+                    </ul>
+                }
+            </li>
+        }
+    </text>;
+
+    // Native DnD helpers már nem kellenek, SortableJS kezeli
+    private string GetIndentedName(Category c)
+    {
+        int level = 0; var p = c.ParentCategoryId;
+        while (p != null)
+        {
+            var parent = flat.FirstOrDefault(x => x.Id == p);
+            if (parent == null) break;
+            level++; p = parent.ParentCategoryId;
+        }
+        return string.Concat(Enumerable.Repeat("— ", level)) + c.Name;
+    }
+    // Minden rendezést a SortableJS → OnCatsDrop kezel
+}

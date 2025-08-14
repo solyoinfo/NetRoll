@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Generate two-factor authentication (2FA) recovery codes</value></data>
+  <data name="Heading" xml:space="preserve"><value>Generate two-factor authentication (2FA) recovery codes</value></data>
+  <data name="WarningTitle" xml:space="preserve"><value>Put these codes in a safe place.</value></data>
+  <data name="WarningLoseAccess" xml:space="preserve"><value>If you lose your device and don't have the recovery codes you will lose access to your account.</value></data>
+  <data name="WarningResetKeyLine" xml:space="preserve"><value>Generating new recovery codes does not change the keys used in authenticator apps. If you wish to change the key,</value></data>
+  <data name="ResetAuthenticatorLinkText" xml:space="preserve"><value>reset your authenticator keys.</value></data>
+  <data name="GenerateButton" xml:space="preserve"><value>Generate Recovery Codes</value></data>
+  <data name="GeneratedMessage" xml:space="preserve"><value>You have generated new recovery codes.</value></data>
+</root>

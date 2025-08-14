@@ -1,0 +1,72 @@
+﻿@inherits LayoutComponentBase
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.Localization
+@inject IStringLocalizer<NetRoll.Components.Layout.MainLayout> L
+
+@code {
+    private string? userName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        userName = (user.Identity?.IsAuthenticated ?? false) ? user.Identity!.Name : "Felhasználó";
+    }
+}
+
+
+<div>
+    <nav class="navbar navbar-expand navbar-dark bg-primary fixed-top">
+        <div class="container-fluid">
+            <button class="btn btn-outline-light me-2" type="button" onclick="window.sidebar?.toggle()" title="@L["Menu"]">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <a class="navbar-brand" href="/">NetRoll</a>
+
+            <div class="ms-auto me-3">
+                <div class="btn-group" role="group" aria-label="Language switcher">
+                    <a class="btn btn-outline-light btn-sm" href="/set-culture/hu" data-enhance-nav="false">HU</a>
+                    <a class="btn btn-outline-light btn-sm" href="/set-culture/en" data-enhance-nav="false">EN</a>
+                </div>
+            </div>
+
+            <AuthorizeView>
+                <Authorized>
+                    <div class="dropdown">
+                        <a class="nav-link dropdown-toggle text-white" href="#" role="button" data-bs-toggle="dropdown">
+                            @userName
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="/Account/Manage" data-enhance-nav="false">@L["Profile"]</a></li>
+                            <li>
+                                <a href="/Account/Logout" class="dropdown-item" data-enhance-nav="false">@L["Logout"]</a>
+                            </li>
+                        </ul>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <div class="ms-auto">
+                        <a href="/Account/Login" class="btn btn-outline-light" data-enhance-nav="false">@L["Login"]</a>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </nav>
+
+    <SideMenu />
+
+    <main class="content">
+        @Body
+    </main>
+</div>
+
+<style>
+    .content {
+        margin-left: 250px;
+        padding: 20px;
+        margin-top: 60px;
+    }
+    body.sidebar-collapsed .content { margin-left: 70px; }
+</style>
+

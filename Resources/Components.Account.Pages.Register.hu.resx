@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Regisztráció</value></data>
+  <data name="Heading" xml:space="preserve"><value>Regisztráció</value></data>
+  <data name="CreateAccount" xml:space="preserve"><value>Új fiók létrehozása</value></data>
+  <data name="Email" xml:space="preserve"><value>Email</value></data>
+  <data name="Password" xml:space="preserve"><value>Jelszó</value></data>
+  <data name="ConfirmPassword" xml:space="preserve"><value>Jelszó megerősítése</value></data>
+  <data name="RegisterButton" xml:space="preserve"><value>Regisztráció</value></data>
+  <data name="UseAnotherService" xml:space="preserve"><value>Regisztráció másik szolgáltatással</value></data>
+</root>

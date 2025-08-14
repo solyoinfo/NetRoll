@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Kétlépcsős azonosítás (2FA) letiltása</value></data>
+  <data name="Heading" xml:space="preserve"><value>Kétlépcsős azonosítás (2FA) letiltása</value></data>
+  <data name="OnlyDisables2fa" xml:space="preserve"><value>Ez a művelet csak a 2FA-t tiltja le.</value></data>
+  <data name="DisableExplanation" xml:space="preserve"><value>A 2FA letiltása nem módosítja a hitelesítő alkalmazásokban használt kulcsokat. Ha a kulcsot szeretnéd megváltoztatni,</value></data>
+  <data name="ResetAuthenticatorLinkText" xml:space="preserve"><value>állítsd vissza a hitelesítő kulcsokat.</value></data>
+  <data name="DisableButton" xml:space="preserve"><value>2FA letiltása</value></data>
+  <data name="DisabledStatus" xml:space="preserve"><value>A 2FA le lett tiltva. Újra engedélyezheted, ha beállítod a hitelesítő alkalmazást.</value></data>
+</root>

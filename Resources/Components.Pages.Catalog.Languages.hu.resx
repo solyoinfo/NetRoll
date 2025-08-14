@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Nyelvek kezelése</value></data>
+  <data name="Heading" xml:space="preserve"><value>Nyelvek kezelése</value></data>
+  <data name="Intro" xml:space="preserve"><value>Itt adhatod meg, hogy mely nyelveken szeretnéd kezelni a kategóriák és egyéb adatok neveit.</value></data>
+  <data name="CodeHeader" xml:space="preserve"><value>Nyelvi kód (pl. hu)</value></data>
+  <data name="NameHeader" xml:space="preserve"><value>Megjelenő név (pl. Magyar)</value></data>
+  <data name="DeleteButton" xml:space="preserve"><value>Törlés</value></data>
+  <data name="AddNewLanguage" xml:space="preserve"><value>Új nyelv hozzáadása</value></data>
+  <data name="CodePlaceholder" xml:space="preserve"><value>pl. en</value></data>
+  <data name="NamePlaceholder" xml:space="preserve"><value>pl. Angol</value></data>
+  <data name="AddButton" xml:space="preserve"><value>Hozzáadás</value></data>
+  <data name="MissingData" xml:space="preserve"><value>Hiányzó adatok</value></data>
+  <data name="AlreadyExists" xml:space="preserve"><value>Már létező nyelvi kód</value></data>
+  <data name="Added" xml:space="preserve"><value>Hozzáadva</value></data>
+  <data name="CannotDeleteHu" xml:space="preserve"><value>A magyar alap nyelv nem törölhető</value></data>
+  <data name="CannotDeleteLast" xml:space="preserve"><value>Az utolsó nyelv nem törölhető</value></data>
+  <data name="Deleted" xml:space="preserve"><value>Törölve</value></data>
+  <data name="ConfirmDeleteMessage" xml:space="preserve"><value>Biztosan törlöd a nyelvet? Az adott nyelvhez megadott összes fordítás is el fog veszni.</value></data>
+  <data name="Success" xml:space="preserve"><value>Siker</value></data>
+  <data name="Warning" xml:space="preserve"><value>Figyelem</value></data>
+  <data name="Error" xml:space="preserve"><value>Hiba</value></data>
+</root>

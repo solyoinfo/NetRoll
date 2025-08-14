@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Two-factor authentication (2FA)</value></data>
+  <data name="Heading" xml:space="preserve"><value>Two-factor authentication (2FA)</value></data>
+  <data name="NoCodesTitle" xml:space="preserve"><value>You have no recovery codes left.</value></data>
+  <data name="NoCodesText" xml:space="preserve"><value>You must </value></data>
+  <data name="GenerateCodesLinkText" xml:space="preserve"><value>generate a new set of recovery codes</value></data>
+  <data name="OneCodeTitle" xml:space="preserve"><value>You have 1 recovery code left.</value></data>
+  <data name="OneCodeText" xml:space="preserve"><value>You can </value></data>
+  <data name="FewCodesTitle" xml:space="preserve"><value>You have {0} recovery codes left.</value></data>
+  <data name="FewCodesText" xml:space="preserve"><value>You should </value></data>
+  <data name="ForgetBrowser" xml:space="preserve"><value>Forget this browser</value></data>
+  <data name="Disable2fa" xml:space="preserve"><value>Disable 2FA</value></data>
+  <data name="ResetCodes" xml:space="preserve"><value>Reset recovery codes</value></data>
+  <data name="AuthenticatorApp" xml:space="preserve"><value>Authenticator app</value></data>
+  <data name="AddAuthenticator" xml:space="preserve"><value>Add authenticator app</value></data>
+  <data name="SetupAuthenticator" xml:space="preserve"><value>Set up authenticator app</value></data>
+  <data name="ResetAuthenticator" xml:space="preserve"><value>Reset authenticator app</value></data>
+  <data name="PolicyNotAcceptedTitle" xml:space="preserve"><value>Privacy and cookie policy have not been accepted.</value></data>
+  <data name="PolicyNotAcceptedText" xml:space="preserve"><value>You must accept the policy before you can enable two factor authentication.</value></data>
+  <data name="ForgottenBrowserStatus" xml:space="preserve"><value>The current browser has been forgotten. When you login again from this browser you will be prompted for your 2fa code.</value></data>
+</root>

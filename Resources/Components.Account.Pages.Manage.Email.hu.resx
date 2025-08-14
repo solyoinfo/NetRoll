@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>E-mail kezelése</value></data>
+  <data name="Heading" xml:space="preserve"><value>E-mail kezelése</value></data>
+  <data name="EnterYourEmailPlaceholder" xml:space="preserve"><value>Add meg az e-mail címed</value></data>
+  <data name="Email" xml:space="preserve"><value>E-mail</value></data>
+  <data name="SendVerificationEmail" xml:space="preserve"><value>Ellenőrző e-mail küldése</value></data>
+  <data name="EnterNewEmailPlaceholder" xml:space="preserve"><value>Adj meg egy új e-mail címet</value></data>
+  <data name="NewEmail" xml:space="preserve"><value>Új e-mail</value></data>
+  <data name="ChangeEmail" xml:space="preserve"><value>E-mail módosítása</value></data>
+  <data name="EmailUnchanged" xml:space="preserve"><value>Az e-mail cím nem változott.</value></data>
+  <data name="ChangeEmailLinkSent" xml:space="preserve"><value>Megerősítő link elküldve az e-mail cím módosításához. Kérjük, ellenőrizd az e-mailjeidet.</value></data>
+  <data name="VerificationEmailSent" xml:space="preserve"><value>Ellenőrző e-mail elküldve. Kérjük, ellenőrizd az e-mailjeidet.</value></data>
+</root>

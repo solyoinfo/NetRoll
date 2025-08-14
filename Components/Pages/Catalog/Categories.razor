@@ -1,0 +1,146 @@
+@page "/catalog/categories"
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using NetRoll.Data
+@using NetRoll.Models
+@attribute [Authorize]
+@inject ApplicationDbContext Db
+@inject Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> UserManager
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<PageTitle>Kategóriák</PageTitle>
+
+<h3>Kategóriafák</h3>
+
+<EditForm Model="newTree" OnValidSubmit="CreateTreeAsync">
+    <DataAnnotationsValidator />
+    <div class="input-group mb-3">
+        <input class="form-control" placeholder="Új kategóriafa neve" @bind="newTreeName" />
+        <button type="submit" class="btn btn-primary">Létrehozás</button>
+    </div>
+</EditForm>
+
+@if (trees is null)
+{
+    <p>Betöltés...</p>
+}
+else if (trees.Count == 0)
+{
+    <div class="alert alert-info">Még nincs kategóriafa. Hozz létre egyet!</div>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var t in trees)
+        {
+            <div class="list-group-item">
+                @if (renameId == t.Id)
+                {
+                    <div class="d-flex gap-2">
+                        <input class="form-control" @bind="renameName" />
+                        <button class="btn btn-success" @onclick="() => ConfirmRenameAsync(t.Id)">Mentés</button>
+                        <button class="btn btn-secondary" @onclick="CancelRename">Mégse</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>@t.Name</strong>
+                            <span class="text-muted">(@(t.Categories?.Count ?? 0) kategória)</span>
+                        </div>
+                        <div class="btn-group">
+                            <a class="btn btn-sm btn-outline-primary" href="/catalog/categories/edit/@t.Id">Megnyitás</a>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => BeginRename(t)">Átnevez</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeleteTreeAsync(t.Id)">Törlés</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<CategoryTree>? trees;
+    private string? currentUserId;
+    private string? newTreeName;
+    private int? renameId;
+    private string? renameName;
+    private readonly object newTree = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUserId = UserManager.GetUserId(Http.HttpContext!.User);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        trees = await Db.CategoryTrees
+            .Where(x => x.OwnerUserId == currentUserId)
+            .Include(x => x.Categories)
+            .OrderBy(x => x.Name)
+            .ToListAsync();
+    }
+
+    private async Task CreateTreeAsync()
+    {
+        var name = (newTreeName ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(currentUserId)) return;
+        Db.CategoryTrees.Add(new CategoryTree { Name = name, OwnerUserId = currentUserId });
+        await Db.SaveChangesAsync();
+        newTreeName = string.Empty;
+        await LoadAsync();
+    }
+
+    private void BeginRename(CategoryTree t)
+    {
+        renameId = t.Id;
+        renameName = t.Name;
+    }
+
+    private void CancelRename()
+    {
+        renameId = null;
+        renameName = null;
+    }
+
+    private async Task ConfirmRenameAsync(int id)
+    {
+        var tree = await Db.CategoryTrees.FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == currentUserId);
+        if (tree is null) return;
+        var name = (renameName ?? string.Empty).Trim();
+        if (string.IsNullOrEmpty(name)) return;
+        tree.Name = name;
+        await Db.SaveChangesAsync();
+        renameId = null;
+        renameName = null;
+        await LoadAsync();
+    }
+
+    private async Task DeleteTreeAsync(int id)
+    {
+        var tree = await Db.CategoryTrees
+            .Include(t => t.Categories)
+            .FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == currentUserId);
+        if (tree is null) return;
+        Db.Categories.RemoveRange(tree.Categories);
+        Db.CategoryTrees.Remove(tree);
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private async Task ConfirmDeleteTreeAsync(int id)
+    {
+        var ok = false;
+        try { ok = await JS.InvokeAsync<bool>("confirmModal", "Biztosan törlöd a kategóriafát? Az összes benne lévő kategória is törlődik."); }
+        catch { ok = await JS.InvokeAsync<bool>("confirm", "Biztosan törlöd a kategóriafát?"); }
+        if (!ok) return;
+        await DeleteTreeAsync(id);
+        try { await JS.InvokeVoidAsync("showToast", new { title = "Siker", body = "Kategóriafa törölve", type = "success" }); } catch {}
+    }
+}

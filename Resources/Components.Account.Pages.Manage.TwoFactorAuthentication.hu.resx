@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Kétlépcsős azonosítás (2FA)</value></data>
+  <data name="Heading" xml:space="preserve"><value>Kétlépcsős azonosítás (2FA)</value></data>
+  <data name="NoCodesTitle" xml:space="preserve"><value>Nincsenek több helyreállítási kódjaid.</value></data>
+  <data name="NoCodesText" xml:space="preserve"><value>Mielőtt helyreállítási kóddal tudnál belépni, </value></data>
+  <data name="GenerateCodesLinkText" xml:space="preserve"><value>készíts új helyreállítási kódokat</value></data>
+  <data name="OneCodeTitle" xml:space="preserve"><value>1 helyreállítási kód maradt.</value></data>
+  <data name="OneCodeText" xml:space="preserve"><value>Készíthetsz </value></data>
+  <data name="FewCodesTitle" xml:space="preserve"><value>@(0) helyreállítási kód maradt.</value></data>
+  <data name="FewCodesText" xml:space="preserve"><value>Javasoljuk, hogy </value></data>
+  <data name="ForgetBrowser" xml:space="preserve"><value>Ennek a böngészőnek az elfelejtése</value></data>
+  <data name="Disable2fa" xml:space="preserve"><value>2FA letiltása</value></data>
+  <data name="ResetCodes" xml:space="preserve"><value>Helyreállítási kódok visszaállítása</value></data>
+  <data name="AuthenticatorApp" xml:space="preserve"><value>Hitelesítő alkalmazás</value></data>
+  <data name="AddAuthenticator" xml:space="preserve"><value>Hitelesítő alkalmazás hozzáadása</value></data>
+  <data name="SetupAuthenticator" xml:space="preserve"><value>Hitelesítő alkalmazás beállítása</value></data>
+  <data name="ResetAuthenticator" xml:space="preserve"><value>Hitelesítő alkalmazás visszaállítása</value></data>
+  <data name="PolicyNotAcceptedTitle" xml:space="preserve"><value>Az adatvédelmi és sütiszabályzatot nem fogadtad el.</value></data>
+  <data name="PolicyNotAcceptedText" xml:space="preserve"><value>El kell fogadnod a szabályzatot a kétlépcsős azonosítás engedélyezése előtt.</value></data>
+  <data name="ForgottenBrowserStatus" xml:space="preserve"><value>Az aktuális böngésző el lett felejtve. Legközelebb 2FA kódot kell megadni belépéskor.</value></data>
+</root>

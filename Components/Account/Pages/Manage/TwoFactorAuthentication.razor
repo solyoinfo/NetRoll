@@ -1,0 +1,103 @@
+﻿@page "/Account/Manage/TwoFactorAuthentication"
+
+@using Microsoft.AspNetCore.Http.Features
+@using Microsoft.AspNetCore.Identity
+@using NetRoll.Data
+@using Microsoft.Extensions.Localization
+
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject IdentityUserAccessor UserAccessor
+@inject IdentityRedirectManager RedirectManager
+@inject IStringLocalizer<NetRoll.Components.Account.Pages.Manage.TwoFactorAuthentication> L
+
+<PageTitle>@L["PageTitle"]</PageTitle>
+
+<StatusMessage />
+<h3>@L["Heading"]</h3>
+@if (canTrack)
+{
+    if (is2faEnabled)
+    {
+        if (recoveryCodesLeft == 0)
+        {
+            <div class="alert alert-danger">
+                <strong>@L["NoCodesTitle"]</strong>
+                <p>@L["NoCodesText"] <a href="Account/Manage/GenerateRecoveryCodes">@L["GenerateCodesLinkText"]</a></p>
+            </div>
+        }
+        else if (recoveryCodesLeft == 1)
+        {
+            <div class="alert alert-danger">
+                <strong>@L["OneCodeTitle"]</strong>
+                <p>@L["OneCodeText"] <a href="Account/Manage/GenerateRecoveryCodes">@L["GenerateCodesLinkText"]</a>.</p>
+            </div>
+        }
+        else if (recoveryCodesLeft <= 3)
+        {
+            <div class="alert alert-warning">
+                <strong>@L["FewCodesTitle", recoveryCodesLeft]</strong>
+                <p>@L["FewCodesText"] <a href="Account/Manage/GenerateRecoveryCodes">@L["GenerateCodesLinkText"]</a>.</p>
+            </div>
+        }
+
+        if (isMachineRemembered)
+        {
+            <form style="display: inline-block" @formname="forget-browser" @onsubmit="OnSubmitForgetBrowserAsync" method="post">
+                <AntiforgeryToken />
+                <button type="submit" class="btn btn-primary">@L["ForgetBrowser"]</button>
+            </form>
+        }
+
+    <a href="Account/Manage/Disable2fa" class="btn btn-primary">@L["Disable2fa"]</a>
+    <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-primary">@L["ResetCodes"]</a>
+    }
+
+    <h4>@L["AuthenticatorApp"]</h4>
+    @if (!hasAuthenticator)
+    {
+    <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">@L["AddAuthenticator"]</a>
+    }
+    else
+    {
+    <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">@L["SetupAuthenticator"]</a>
+    <a href="Account/Manage/ResetAuthenticator" class="btn btn-primary">@L["ResetAuthenticator"]</a>
+    }
+}
+else
+{
+    <div class="alert alert-danger">
+        <strong>@L["PolicyNotAcceptedTitle"]</strong>
+        <p>@L["PolicyNotAcceptedText"]</p>
+    </div>
+}
+
+@code {
+    private bool canTrack;
+    private bool hasAuthenticator;
+    private int recoveryCodesLeft;
+    private bool is2faEnabled;
+    private bool isMachineRemembered;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await UserAccessor.GetRequiredUserAsync(HttpContext);
+        canTrack = HttpContext.Features.Get<ITrackingConsentFeature>()?.CanTrack ?? true;
+        hasAuthenticator = await UserManager.GetAuthenticatorKeyAsync(user) is not null;
+        is2faEnabled = await UserManager.GetTwoFactorEnabledAsync(user);
+        isMachineRemembered = await SignInManager.IsTwoFactorClientRememberedAsync(user);
+        recoveryCodesLeft = await UserManager.CountRecoveryCodesAsync(user);
+    }
+
+    private async Task OnSubmitForgetBrowserAsync()
+    {
+        await SignInManager.ForgetTwoFactorClientAsync();
+
+        RedirectManager.RedirectToCurrentPageWithStatus(
+            L["ForgottenBrowserStatus"],
+            HttpContext);
+    }
+}

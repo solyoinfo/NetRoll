@@ -1,0 +1,14 @@
+@page "/catalog"
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Kattintás a főmenüre ne dobjon 404-et, irányítsuk a Nyelvek oldalra
+        Nav.NavigateTo("/catalog/languages", replace: true);
+    }
+}
+
+<p>Navigálás a Nyelvek oldalra…</p>

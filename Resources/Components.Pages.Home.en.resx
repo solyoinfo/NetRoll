@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Welcome" xml:space="preserve"><value>Welcome</value></data>
+  <data name="LoadingPlans" xml:space="preserve"><value>Loading plans...</value></data>
+  <data name="Current" xml:space="preserve"><value>Current</value></data>
+  <data name="RequestChange" xml:space="preserve"><value>Request change</value></data>
+  <data name="PlanRequestedMessage" xml:space="preserve"><value>Your request has been submitted.</value></data>
+  <data name="PlanAlreadyPendingMessage" xml:space="preserve"><value>You already have a pending request.</value></data>
+  <data name="PlanRateLimitedMessage" xml:space="preserve"><value>Please wait a few minutes before requesting again.</value></data>
+</root>

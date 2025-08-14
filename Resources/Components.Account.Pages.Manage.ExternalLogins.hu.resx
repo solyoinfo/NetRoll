@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Külső bejelentkezések kezelése</value></data>
+  <data name="RegisteredLogins" xml:space="preserve"><value>Regisztrált bejelentkezések</value></data>
+  <data name="RemoveTitle" xml:space="preserve"><value>Távolítsd el ezt a(z) {0} bejelentkezést a fiókodból</value></data>
+  <data name="Remove" xml:space="preserve"><value>Eltávolítás</value></data>
+  <data name="AddAnotherService" xml:space="preserve"><value>Adj hozzá egy másik szolgáltatót a bejelentkezéshez</value></data>
+  <data name="LoginUsingTitle" xml:space="preserve"><value>Jelentkezz be a(z) {0} fiókoddal</value></data>
+  <data name="RemoveError" xml:space="preserve"><value>Hiba: A külső bejelentkezés eltávolítása sikertelen.</value></data>
+  <data name="Removed" xml:space="preserve"><value>A külső bejelentkezés eltávolítva.</value></data>
+  <data name="LoadInfoError" xml:space="preserve"><value>Hiba: A külső bejelentkezés adatai nem tölthetők be.</value></data>
+  <data name="AddError" xml:space="preserve"><value>Hiba: A külső bejelentkezés hozzáadása sikertelen. A külső bejelentkezés csak egy fiókhoz társítható.</value></data>
+  <data name="Added" xml:space="preserve"><value>A külső bejelentkezés hozzáadva.</value></data>
+</root>

@@ -1,0 +1,115 @@
+@page "/admin/plans"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles="Admin")]
+@using NetRoll.Models
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@inject NetRoll.Services.PlanService PlanService
+@inject IWebHostEnvironment Env
+@inject ILogger<PlanManager> Logger
+@inject Microsoft.Extensions.Localization.IStringLocalizer<PlanManager> L
+@inject NetRoll.Services.IHtmlSanitizerService Sanitizer
+
+<h3>@L["PlansHeading"]</h3>
+@if (plans is null)
+{
+    <p>@L["Loading"]</p>
+}
+else
+{
+    <form @onsubmit="OnSubmit">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>@L["Name"]</th>
+                    <th>@L["MaxFiles"]</th>
+                    <th>@L["MaxStorageMb"]</th>
+                    <th>@L["MaxProducts"]</th>
+                    <th>@L["DescriptionHtml"]</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i=0; i<editModel.Items.Count; i++)
+                {
+                    <tr>
+                        <td><input class="form-control form-control-sm" @bind="editModel.Items[i].Name" /></td>
+                        <td><input type="number" class="form-control form-control-sm" @bind="editModel.Items[i].MaxFileCount" /></td>
+                        <td><input type="number" class="form-control form-control-sm" @bind="editModel.Items[i].MaxStorageMb" /></td>
+                        <td><input type="number" class="form-control form-control-sm" @bind="editModel.Items[i].MaxProductCount" /></td>
+                        <td><textarea class="form-control form-control-sm" rows="2" @bind="editModel.Items[i].HtmlDescription"></textarea></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger" @onclick="(()=>Remove(i))">X</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-secondary" type="button" @onclick="Add">@L["Add"]</button>
+            <button class="btn btn-sm btn-primary" type="submit">@L["Save"]</button>
+            @if (saved)
+            {
+                <span class="text-success">@L["Saved"]</span>
+            }
+        </div>
+    </form>
+}
+
+@code {
+    private List<PlanDefinition>? plans;
+    private PlansEditModel editModel = new();
+    private bool saved;
+
+    class PlanRow
+    {
+        public string Name { get; set; } = string.Empty;
+        public int MaxFileCount { get; set; }
+        public long MaxStorageMb { get; set; }
+        public int MaxProductCount { get; set; }
+    public string? HtmlDescription { get; set; }
+    }
+    class PlansEditModel { public List<PlanRow> Items { get; set; } = new(); }
+
+    protected override void OnInitialized()
+    {
+        plans = PlanService.GetPlans().ToList();
+        editModel.Items = plans.Select(p => new PlanRow{
+            Name = p.Name,
+            MaxFileCount = p.MaxFileCount,
+            MaxStorageMb = p.MaxStorageBytes / 1024 / 1024,
+            MaxProductCount = p.MaxProductCount,
+            HtmlDescription = p.HtmlDescription
+        }).ToList();
+    }
+
+    void Add() => editModel.Items.Add(new PlanRow{ Name="NEW", MaxFileCount=100, MaxStorageMb=100, MaxProductCount=10});
+    void Remove(int idx){ if (idx>=0 && idx < editModel.Items.Count) editModel.Items.RemoveAt(idx); }
+
+    async Task SaveAsync()
+    {
+        try
+        {
+            var path = Path.Combine(Env.ContentRootPath, "App_Data", "plans.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var updated = editModel.Items.Select(r => new PlanDefinition{
+                Name = r.Name.Trim(),
+                MaxFileCount = r.MaxFileCount,
+                MaxStorageBytes = r.MaxStorageMb * 1024L * 1024L,
+                MaxProductCount = r.MaxProductCount,
+                HtmlDescription = Sanitizer.Sanitize(r.HtmlDescription)
+            }).Where(p=>!string.IsNullOrWhiteSpace(p.Name)).ToList();
+            var json = System.Text.Json.JsonSerializer.Serialize(updated, new System.Text.Json.JsonSerializerOptions{WriteIndented=true});
+            await File.WriteAllTextAsync(path, json);
+            saved = true;
+            PlanService.Reload();
+            plans = PlanService.GetPlans().ToList();
+        }
+        catch(Exception ex)
+        {
+            Logger.LogError(ex, "Plan save failed");
+        }
+    }
+    async Task OnSubmit()
+    {
+        await SaveAsync();
+    }
+}

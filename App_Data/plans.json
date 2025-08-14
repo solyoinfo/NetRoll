@@ -1,0 +1,14 @@
+[
+  {
+    "Name": "FREE",
+    "MaxStorageBytes": 52428800,
+    "MaxFileCount": 50,
+    "MaxProductCount": 20
+  },
+  {
+    "Name": "PRO",
+    "MaxStorageBytes": 1073741824,
+    "MaxFileCount": 1000,
+    "MaxProductCount":500
+  }
+]

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="ImageSettingsTitle" xml:space="preserve"><value>Képbeállítások</value></data>
+  <data name="Loading" xml:space="preserve"><value>Betöltés…</value></data>
+  <data name="NotLoggedIn" xml:space="preserve"><value>Nem vagy bejelentkezve.</value></data>
+  <data name="MaxWidthLabel" xml:space="preserve"><value>Max szélesség (px)</value></data>
+  <data name="MaxHeightLabel" xml:space="preserve"><value>Max magasság (px)</value></data>
+  <data name="AspectListLabel" xml:space="preserve"><value>Alap képarányok (vesszővel)</value></data>
+  <data name="AspectListHint" xml:space="preserve"><value>Pl: 1:1,4:3,3:4</value></data>
+  <data name="SaveAllModeLabel" xml:space="preserve"><value>Összes mentése mód</value></data>
+  <data name="ModeSingle" xml:space="preserve"><value>Egy kivágás minden arányhoz (padding szükség esetén)</value></data>
+  <data name="ModePerAspect" xml:space="preserve"><value>Arányonként újraigazított kivágás (kevesebb padding)</value></data>
+  <data name="ModeInfo" xml:space="preserve"><value>"Per arány" módban a végén a legutolsó arány marad beállítva a szerkesztőben.</value></data>
+  <data name="SaveButton" xml:space="preserve"><value>Mentés</value></data>
+  <data name="ResetButton" xml:space="preserve"><value>Visszaállítás</value></data>
+  <data name="SavedShort" xml:space="preserve"><value>Mentve.</value></data>
+  <data name="SavingInProgress" xml:space="preserve"><value>Mentés folyamatban…</value></data>
+  <data name="SavedAt" xml:space="preserve"><value>Elmentve {0}</value></data>
+  <data name="ErrorCountTitle" xml:space="preserve"><value>Hibák száma</value></data>
+  <data name="ErrorCount" xml:space="preserve"><value>{0} hiba</value></data>
+  <data name="SaveAllModeTitle" xml:space="preserve"><value>Összes mentése mód</value></data>
+  <data name="ModeStatusPerAspect" xml:space="preserve"><value>Arányonkénti mentés</value></data>
+  <data name="ModeStatusSingle" xml:space="preserve"><value>Egységes kivágás</value></data>
+  <data name="Error" xml:space="preserve"><value>Hiba</value></data>
+  <data name="InvalidData" xml:space="preserve"><value>Érvénytelen adatok.</value></data>
+  <data name="Saved" xml:space="preserve"><value>Mentve</value></data>
+  <data name="SettingsSaved" xml:space="preserve"><value>Beállítások elmentve.</value></data>
+</root>

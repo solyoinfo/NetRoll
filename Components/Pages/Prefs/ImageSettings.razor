@@ -1,0 +1,53 @@
+@page "/settings/image-legacy"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Components.Forms
+@inject NetRoll.Data.ApplicationDbContext Db
+@inject Microsoft.AspNetCore.Identity.UserManager<NetRoll.Data.ApplicationUser> UserManager
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+@using Microsoft.EntityFrameworkCore
+
+<h4>Képbeállítások (legacy)</h4>
+
+@if (model is null)
+{
+  <div class="text-muted">Betöltés…</div>
+}
+else
+{
+  <form @onsubmit="SaveAsync">
+    <div class="row g-3">
+      <div class="col-sm-4">
+        <label class="form-label">Max. szélesség (px)</label>
+        <input type="number" class="form-control" value="@model.MaxWidth" @oninput="(e)=> model.MaxWidth = int.TryParse(e.Value?.ToString(), out var v) ? v : model.MaxWidth" />
+      </div>
+      <div class="col-sm-4">
+        <label class="form-label">Max. magasság (px)</label>
+        <input type="number" class="form-control" value="@model.MaxHeight" @oninput="(e)=> model.MaxHeight = int.TryParse(e.Value?.ToString(), out var v) ? v : model.MaxHeight" />
+      </div>
+      <div class="col-sm-4 d-flex align-items-end">
+        <button class="btn btn-primary" type="submit">Mentés</button>
+      </div>
+    </div>
+  </form>
+}
+
+@code {
+  private NetRoll.Models.UserImageSettings? model;
+  private string? userId;
+  protected override async Task OnInitializedAsync()
+  {
+    userId = UserManager.GetUserId(Http.HttpContext!.User);
+    if (userId is null) return;
+    model = await Db.UserImageSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId) 
+         ?? new NetRoll.Models.UserImageSettings { OwnerUserId = userId, MaxWidth = 900, MaxHeight = 900 };
+  }
+  private async Task SaveAsync()
+  {
+    if (userId is null || model is null) return;
+    var entity = await Db.UserImageSettings.FirstOrDefaultAsync(s => s.OwnerUserId == userId);
+    if (entity is null) { Db.UserImageSettings.Add(model); }
+    else { entity.MaxWidth = model.MaxWidth; entity.MaxHeight = model.MaxHeight; }
+    await Db.SaveChangesAsync();
+  }
+}

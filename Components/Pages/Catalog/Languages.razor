@@ -1,0 +1,133 @@
+@page "/catalog/languages"
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using NetRoll.Data
+@using NetRoll.Models
+@attribute [Authorize]
+@inject ApplicationDbContext Db
+@inject Microsoft.AspNetCore.Identity.UserManager<ApplicationUser> UserManager
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor Http
+@inject Microsoft.Extensions.Localization.IStringLocalizer<NetRoll.Components.Pages.Catalog.Languages> L
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<PageTitle>@L["PageTitle"]</PageTitle>
+
+<h3>@L["Heading"]</h3>
+<p class="text-muted">@L["Intro"]</p>
+
+@* Toast értesítések JS-ből jelennek meg, itt nem kell külön szöveg *@
+
+@if (items is null)
+{
+    <p>Betöltés...</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>@L["CodeHeader"]</th>
+                <th>@L["NameHeader"]</th>
+                <th class="text-end"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var l in items)
+            {
+                <tr>
+                    <td>@l.Code</td>
+                    <td>@l.DisplayName</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDeleteAsync(l.Id)"><span class="oi oi-trash"></span> @L["DeleteButton"]</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="card mt-3">
+        <div class="card-header">@L["AddNewLanguage"]</div>
+        <div class="card-body">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <input class="form-control" placeholder="@L["CodePlaceholder"]" @bind="code" />
+                </div>
+                <div class="col-md-5">
+                    <input class="form-control" placeholder="@L["NamePlaceholder"]" @bind="displayName" />
+                </div>
+                <div class="col-md-4 text-end">
+                    <button type="button" class="btn btn-success" @onclick="AddAsync"><span class="oi oi-plus"></span> @L["AddButton"]</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string? currentUserId;
+    private List<Language>? items;
+    private string? code;
+    private string? displayName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentUserId = UserManager.GetUserId(Http.HttpContext!.User);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (string.IsNullOrEmpty(currentUserId)) return;
+
+        // Biztosítsuk, hogy a Magyar (hu) alapértelmezett nyelv mindig létezzen az adott felhasználónál
+        if (!await Db.Languages.AnyAsync(x => x.OwnerUserId == currentUserId && x.Code == "hu"))
+        {
+            Db.Languages.Add(new Language { Code = "hu", DisplayName = "Magyar", OwnerUserId = currentUserId! });
+            await Db.SaveChangesAsync();
+        }
+
+    items = await Db.Languages
+            .Where(x => x.OwnerUserId == currentUserId)
+            .OrderBy(x => x.DisplayName)
+            .ToListAsync();
+    }
+
+    private async Task AddAsync()
+    {
+        var c = (code ?? string.Empty).Trim();
+        var d = (displayName ?? string.Empty).Trim();
+    if (string.IsNullOrEmpty(c) || string.IsNullOrEmpty(d) || string.IsNullOrEmpty(currentUserId)) { await JS.InvokeVoidAsync("showToast", new { title = (string)L["Error"], body = (string)L["MissingData"], type = "danger" }); return; }
+    if (await Db.Languages.AnyAsync(x => x.OwnerUserId == currentUserId && x.Code == c)) { await JS.InvokeVoidAsync("showToast", new { title = (string)L["Warning"], body = (string)L["AlreadyExists"], type = "warning" }); return; }
+    Db.Languages.Add(new Language { Code = c, DisplayName = d, OwnerUserId = currentUserId! });
+        await Db.SaveChangesAsync();
+        code = displayName = string.Empty;
+    await JS.InvokeVoidAsync("showToast", new { title = (string)L["Success"], body = (string)L["Added"], type = "success" });
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+    var item = await Db.Languages.FirstOrDefaultAsync(x => x.Id == id && x.OwnerUserId == currentUserId);
+    if (item is null) return;
+    // Ne engedjük törölni az alap magyar nyelvet, illetve az utolsó nyelvet
+    if (item.Code.Equals("hu", StringComparison.OrdinalIgnoreCase)) { await JS.InvokeVoidAsync("showToast", new { title = (string)L["Warning"], body = (string)L["CannotDeleteHu"], type = "warning" }); return; }
+    var total = await Db.Languages.CountAsync(x => x.OwnerUserId == currentUserId);
+    if (total <= 1) { await JS.InvokeVoidAsync("showToast", new { title = (string)L["Warning"], body = (string)L["CannotDeleteLast"], type = "warning" }); return; }
+        Db.Languages.Remove(item);
+        await Db.SaveChangesAsync();
+    await JS.InvokeVoidAsync("showToast", new { title = (string)L["Success"], body = (string)L["Deleted"], type = "success" });
+        await LoadAsync();
+    }
+
+    private async Task ConfirmDeleteAsync(int id)
+    {
+    // Bootstrap modal alapú megerősítés (ha nem elérhető, fallback confirm-re)
+    bool confirmed;
+    try { confirmed = await JS.InvokeAsync<bool>("confirmModal", (string)L["ConfirmDeleteMessage"]); }
+    catch { confirmed = await JS.InvokeAsync<bool>("confirm", (string)L["ConfirmDeleteMessage"]); }
+    if (!confirmed) return;
+        await DeleteAsync(id);
+    }
+}

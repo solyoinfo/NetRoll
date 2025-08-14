@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="PageTitle" xml:space="preserve"><value>Jelentések</value></data>
+  <data name="Loading" xml:space="preserve"><value>Betöltés…</value></data>
+  <data name="NotLoggedIn" xml:space="preserve"><value>Nem vagy bejelentkezve.</value></data>
+  <data name="CardOriginalTitle" xml:space="preserve"><value>Eredeti képek</value></data>
+  <data name="CardCroppedTitle" xml:space="preserve"><value>Vágott variánsok</value></data>
+  <data name="CardTotalTitle" xml:space="preserve"><value>Teljes tárhely</value></data>
+  <data name="CountLabel" xml:space="preserve"><value>Darabszám:</value></data>
+  <data name="SizeLabel" xml:space="preserve"><value>Összméret:</value></data>
+  <data name="TotalFilesLabel" xml:space="preserve"><value>Összes fájl:</value></data>
+  <data name="RefreshButton" xml:space="preserve"><value>Frissítés</value></data>
+  <data name="ForceReloadButton" xml:space="preserve"><value>Újraolvasás</value></data>
+  <data name="ForceReloadHint" xml:space="preserve"><value>Cache megkerülése</value></data>
+  <data name="CacheInfo" xml:space="preserve"><value>Cache frissítve: {0}</value></data>
+  <data name="SectionVariantsTitle" xml:space="preserve"><value>Vágott variánsok részletezve</value></data>
+  <data name="NoVariants" xml:space="preserve"><value>Nincs elmentett vágat.</value></data>
+  <data name="TableHeaderFolder" xml:space="preserve"><value>Mappa</value></data>
+  <data name="TableHeaderCount" xml:space="preserve"><value>Darabszám</value></data>
+  <data name="TableHeaderSizeMB" xml:space="preserve"><value>Méret (MB)</value></data>
+  <data name="TableHeaderPercent" xml:space="preserve"><value>Arány %</value></data>
+  <data name="TableHeaderActions" xml:space="preserve"><value>Műveletek</value></data>
+  <data name="TableFooterTotal" xml:space="preserve"><value>Összesen</value></data>
+  <data name="DeleteVariantButton" xml:space="preserve"><value>Törlés</value></data>
+  <data name="DeleteConfirm" xml:space="preserve"><value>Biztosan törlöd a variáns mappát? {0}</value></data>
+  <data name="DeleteSuccessTitle" xml:space="preserve"><value>Törölve</value></data>
+  <data name="DeleteSuccessBody" xml:space="preserve"><value>A variáns mappa törölve.</value></data>
+  <data name="DeleteErrorTitle" xml:space="preserve"><value>Törlés hiba</value></data>
+  <data name="ErrorTitle" xml:space="preserve"><value>Hiba</value></data>
+</root>
